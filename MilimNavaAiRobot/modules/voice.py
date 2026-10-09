@@ -158,8 +158,9 @@ async def handle_voice(client, message: Message):
         if not (replied and replied.from_user
                 and replied.from_user.id == client.me.id):
             return
-    # smart: tidak difilter di sini — transkrip dilempar ke pipeline normal,
-    # jadi dijawab kalau ada nama Milim ATAU kalau itu pertanyaan
+    # smart: voice TIDAK diproses sama sekali (teks saja) — kecuali di DM
+    if st["chatbot"] == "smart" and not is_private:
+        return
 
     if not GROQ_API_KEY and not C.PROVIDERS:
         formal = st["conv"] == "formal"

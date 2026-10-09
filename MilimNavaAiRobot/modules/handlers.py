@@ -34,6 +34,7 @@ from MilimNavaAiRobot.modules import catchup as CU
 from MilimNavaAiRobot.modules import human_touch as HT
 from MilimNavaAiRobot.modules import lifedata as LD
 from MilimNavaAiRobot.modules import sticker_reply as SR
+from MilimNavaAiRobot.modules import cross_chat as CC
 
 log = logging.getLogger("milim.handlers")
 
@@ -122,6 +123,18 @@ async def ai_respond(client, message: Message, user_text: str,
                 system += style
         except Exception as e:
             log.debug(f"style err: {e}")
+
+    # cross-chat versi aman (hanya DM): "siapa bahas gue di grup?"
+    if chat.type == enums.ChatType.PRIVATE and CC.is_cross_question(user_text or ""):
+        try:
+            import json as _json
+            raw = await db.get(f"user_groups:{user.id}")
+            arr = _json.loads(raw) if raw else []
+            cc = await CC.collect(user_text or "", user.first_name, arr)
+            if cc:
+                system += cc
+        except Exception as e:
+            log.debug(f"crosschat err: {e}")
 
     # riwayat personal user (fitur 7, 22)
     for h in await memory.get(chat.id, user.id):
@@ -384,6 +397,17 @@ async def handle_message(client, message: Message):
     else:
         await memory.add_group(chat_id, user.first_name, "user", entry)
         await memory.add(chat_id, user_id, "user", entry)
+        # cross-chat (aman): catat grup ini di daftar grup milik user
+        try:
+            raw = await db.get(f"user_groups:{user_id}")
+            import json as _json
+            arr = _json.loads(raw) if raw else []
+            if chat_id not in arr:
+                arr.append(chat_id)
+                del arr[:-10]
+                await db.set(f"user_groups:{user_id}", _json.dumps(arr))
+        except Exception as e:
+            log.debug(f"ugroups err: {e}")
 
     respond, reason = should_respond(st, text, user_id)
 

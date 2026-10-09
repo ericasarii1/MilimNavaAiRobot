@@ -29,6 +29,9 @@ from MilimNavaAiRobot.modules import media_gen as MG
 from MilimNavaAiRobot.modules import agent as AG
 from MilimNavaAiRobot.modules import lang as LG
 from MilimNavaAiRobot.modules import group_stats as GS
+from MilimNavaAiRobot.modules import anime as AN
+from MilimNavaAiRobot.modules import catchup as CU
+from MilimNavaAiRobot.modules import human_touch as HT
 
 log = logging.getLogger("milim.handlers")
 
@@ -84,6 +87,31 @@ async def ai_respond(client, message: Message, user_text: str,
                 system += stats
         except Exception as e:
             log.debug(f"gstats err: {e}")
+
+        # anime/manga lookup: data AniList utk topik anime (kemampuan)
+        try:
+            anime_ctx = await AN.maybe_inject(user_text or "")
+            if anime_ctx:
+                system += anime_ctx
+        except Exception as e:
+            log.debug(f"anime err: {e}")
+
+        # catch-up: pesan yang lewat saat user tidak aktif (kemampuan)
+        try:
+            if CU.detect_catchup(user_text or ""):
+                cu = CU.build_catchup(ghist, user.first_name)
+                if cu:
+                    system += cu
+        except Exception as e:
+            log.debug(f"catchup err: {e}")
+
+        # gaya adaptif per lawan bicara (kemampuan manusiawi)
+        try:
+            style = HT.style_of_speaker(ghist, user.first_name)
+            if style:
+                system += style
+        except Exception as e:
+            log.debug(f"style err: {e}")
 
     # riwayat personal user (fitur 7, 22)
     for h in await memory.get(chat.id, user.id):
@@ -395,6 +423,21 @@ async def handle_message(client, message: Message):
 
     # feedback/koreksi diri (fitur 6): tandai supaya AI minta klarifikasi
     needs_clarify = SE.wants_correction(text)
+
+    # kemampuan manusiawi: rule tanya-balik + kejujuran diri (selalu on)
+    try:
+        _reply_ctx = bool(message.reply_to_message)
+        try:
+            _h = (await memory.get(chat_id, user_id, limit=6) if is_private
+                  else await memory.get_group(chat_id, limit=6))
+            _hlen = len(_h or [])
+        except Exception:
+            _hlen = 0
+        if HT.is_ambiguous(text or "", _reply_ctx, _hlen):
+            needs_clarify = True
+        system += HT.build_human_rules(_reply_ctx, _hlen)
+    except Exception as e:
+        log.debug(f"human rules err: {e}")
 
     # batch merge spam (fitur 38)
     merged = await batcher.push(chat_id, user_id, text, media["desc"])

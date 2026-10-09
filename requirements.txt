@@ -8,3 +8,6 @@ pillow
 beautifulsoup4
 edge-tts
 youtube-transcript-api
+pypdf
+python-docx
+openpyxl

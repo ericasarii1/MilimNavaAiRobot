@@ -26,6 +26,7 @@ from MilimNavaAiRobot.modules import persona as PR
 from MilimNavaAiRobot.modules import smart_tools as ST
 from MilimNavaAiRobot.modules import smart_enhance as SE
 from MilimNavaAiRobot.modules import media_gen as MG
+from MilimNavaAiRobot.modules import agent as AG
 
 log = logging.getLogger("milim.handlers")
 
@@ -138,9 +139,20 @@ async def ai_respond(client, message: Message, user_text: str,
     if user_text and len(user_text) > 40:
         system += SE.CONFIDENT_ADDON
 
+    # mood-aware tone (fitur 5)
+    if user_text:
+        mood = AG.detect_mood(user_text)
+        if mood:
+            system += AG.mood_tone_addon(mood)
+        ai_respond._mood = mood
+
     # feedback/koreksi diri (fitur 6)
     if getattr(ai_respond, "_needs_clarify", False):
         system += SE.CLARIFY_INSTRUCTION
+
+    # manifest tools utk agentic mode (agar AI tahu bisa pakai JSON tool)
+    if user_text and len(user_text) > 25 and not media_b64:
+        system += AG.TOOL_MANIFEST
 
     msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
@@ -152,7 +164,18 @@ async def ai_respond(client, message: Message, user_text: str,
     except Exception as e:
         log.debug(f"deep think err: {e}")
 
-    answer = await llm.chat(msgs, image_b64=media_b64)
+    # agentic loop: AI pilih tool sendiri (search/hitung/baca) utk
+    # pertanyaan yang butuh eksplorasi; sisanya jawaban langsung
+    use_agent = bool(user_text) and len(user_text) > 25 and \
+        st.get("chatbot") != "off" and not media_b64
+    if use_agent:
+        try:
+            answer = await AG.agentic_chat(llm, msgs)
+        except Exception as e:
+            log.debug(f"agent err: {e}")
+            answer = await llm.chat(msgs, image_b64=media_b64)
+    else:
+        answer = await llm.chat(msgs, image_b64=media_b64)
 
     # fact-check otomatis (fitur 1) — hanya utk jawaban panjang berklaim
     try:
@@ -283,7 +306,19 @@ async def handle_message(client, message: Message):
 
     # selalu baca media + simpan memory walau mode diam (fitur 7, 8)
     media = await read_media(client, message)
-    entry = text or media["desc"] or "(media)"
+
+    # document reader: PDF/DOCX/XLSX/TXT — ekstrak isi (fitur 2)
+    if message.document and AG.is_supported_doc(message):
+        try:
+            doctext = await AG.read_document(client, message)
+            if doctext:
+                media["desc"] = (media["desc"] or "") + \
+                    f"\n\nISI DOKUMEN '{message.document.file_name}':\n{doctext}"
+                if not media.get("b64"):
+                    media["b64"] = None
+        except Exception as e:
+            log.debug(f"doc read err: {e}")
+    entry = text or (media["desc"][:400] if media["desc"] else "") or "(media)"
     if is_private:
         await memory.add(chat_id, user_id, "user", entry)
     else:
@@ -310,8 +345,9 @@ async def handle_message(client, message: Message):
             respond, reason = True, "reply-to-bot"
 
     # media & smart mode (fitur 39)
-    if not respond and (media["b64"] or media["desc"]) \
-            and st["chatbot"] == "smart" and st["speaking"]:
+    if not respond and (media["b64"] or media["desc"]
+                        or (message.document and AG.is_supported_doc(message))) \
+            and st["chatbot"] in ("smart", "off") and st["speaking"]:
         respond, reason = True, "smart-media"
 
     if not respond:

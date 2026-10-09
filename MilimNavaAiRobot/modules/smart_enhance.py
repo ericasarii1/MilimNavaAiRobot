@@ -101,7 +101,7 @@ async def verify_answer(llm, question: str, answer: str,
             {"role": "user", "content":
                 f"PERTANYAAN: {question[:400]}\n\nKONTEKS: {context[:800]}\n\n"
                 f"JAWABAN: {answer[:1200]}"}
-        ], temperature=0.0)
+        ])
         v = (verdict or "").strip()
         if v.upper().startswith("OK"):
             return answer

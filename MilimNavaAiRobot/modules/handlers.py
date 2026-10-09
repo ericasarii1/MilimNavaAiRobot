@@ -27,6 +27,8 @@ from MilimNavaAiRobot.modules import smart_tools as ST
 from MilimNavaAiRobot.modules import smart_enhance as SE
 from MilimNavaAiRobot.modules import media_gen as MG
 from MilimNavaAiRobot.modules import agent as AG
+from MilimNavaAiRobot.modules import profile as PF
+from MilimNavaAiRobot.modules import lang as LG
 
 log = logging.getLogger("milim.handlers")
 
@@ -145,6 +147,17 @@ async def ai_respond(client, message: Message, user_text: str,
         if mood:
             system += AG.mood_tone_addon(mood)
         ai_respond._mood = mood
+
+    # bahasa user (fitur lang)
+    if user_text:
+        system += LG.language_addon(LG.detect_language(user_text))
+
+    # profil user (fitur profile)
+    try:
+        prof = await PF.get_profile(db, user.id)
+        system += PF.profile_addon(prof)
+    except Exception as e:
+        log.debug(f"profile addon err: {e}")
 
     # feedback/koreksi diri (fitur 6)
     if getattr(ai_respond, "_needs_clarify", False):
@@ -353,6 +366,14 @@ async def handle_message(client, message: Message):
     if not respond:
         return
 
+    # profil: perintah natural (lihat/lupa/inget) — sebelum AI (fitur profil)
+    if text and not message.reply_to_message:
+        reply, handled = await PF.handle_profile_command(db, user_id, text)
+        if handled:
+            await message.reply_text(reply, quote=True)
+            mark_active(chat_id)
+            return
+
     # antispam
     if not await antispam.check(user_id):
         return
@@ -420,6 +441,21 @@ async def handle_message(client, message: Message):
         await LTM.bump_and_maybe_summarize(chat_id, user_id)
     except Exception as e:
         log.debug(f"ltm bump err: {e}")
+
+    # profil auto-learn: ekstrak fakta tiap beberapa pesan
+    try:
+        prof = await PF.get_profile(db, user_id)
+        cnt_key = f"profilecount:{user_id}"
+        raw_cnt = await db.get(cnt_key)
+        cnt = int(raw_cnt or 0) + 1
+        await db.set(cnt_key, str(cnt))
+        if cnt % PF.AUTO_LEARN_EVERY == 0 and not prof.get("_learned_" + str(cnt)):
+            convo = "\n".join(
+                f"{h['role']}: {h['content'][:120]}"
+                for h in await memory.get(chat_id, user_id, limit=10))
+            await PF.auto_learn(llm, db, user_id, convo)
+    except Exception as e:
+        log.debug(f"auto learn err: {e}")
 
     mark_active(chat_id)
 

@@ -359,11 +359,15 @@ async def handle_message(client, message: Message):
             # pesan via-channel/service tanpa from_user dianggap bot
             respond, reason = True, "reply-to-bot"
 
-    # media & smart mode (fitur 39)
+    # media & smart/off mode — hanya kalau reply ke bot (fitur 39, revisi:
+    # sticker/media di smart & off tidak lagi auto-dibalas)
     if not respond and (media["b64"] or media["desc"]
                         or (message.document and AG.is_supported_doc(message))) \
             and st["chatbot"] in ("smart", "off") and st["speaking"]:
-        respond, reason = True, "smart-media"
+        replied_m = message.reply_to_message
+        if (replied_m and ((replied_m.from_user and replied_m.from_user.id == client.me.id)
+                           or (not replied_m.from_user and replied_m.text))):
+            respond, reason = True, "smart-media"
 
     if not respond:
         return

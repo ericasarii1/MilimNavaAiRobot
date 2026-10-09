@@ -152,8 +152,8 @@ async def handle_voice(client, message: Message):
     is_private = message.chat.type == enums.ChatType.PRIVATE
     if not st["speaking"] and not is_private:
         return  # mode diam → voice diabaikan total
-    if st["chatbot"] == "off" and not is_private:
-        # off: hanya kalau reply ke bot sendiri
+    if st["chatbot"] in ("off", "smart") and not is_private:
+        # off/smart: hanya kalau reply ke bot sendiri
         replied = message.reply_to_message
         if not (replied and replied.from_user
                 and replied.from_user.id == client.me.id):

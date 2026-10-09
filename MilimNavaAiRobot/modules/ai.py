@@ -139,7 +139,14 @@ class LLM:
                 raise _AuthError(str(body)[:200])
             if r.status >= 400:
                 raise RuntimeError(f"{p.name} http {r.status}: {str(body)[:200]}")
-            return body["choices"][0]["message"]["content"]
+            msg = body["choices"][0].get("message", {})
+            content = msg.get("content") or ""
+            if not content.strip():
+                # beberapa provider taruh jawaban di reasoning_content
+                content = msg.get("reasoning_content") or ""
+            if not content.strip():
+                raise RuntimeError(f"{p.name} balasan kosong")
+            return content
 
     # ── Google Gemini ─────────────────────────────────────────────
     async def _call_gemini(self, p, key, messages, image_b64):

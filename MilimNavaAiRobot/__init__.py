@@ -73,26 +73,42 @@ def _cfg_int(name, default):
 
 
 def _cfg_providers():
-    """PROVIDERS dari env (OPENROUTER_KEYS=...) atau config.py atau default."""
+    """PROVIDERS: lightvela (env LIGHTVELA_KEY) → openrouter (env) → config.py → default."""
+    providers = []
+
+    # 1. LightVela provider (key via env LIGHTVELA_KEY) — prioritas utama
+    lv_key = _get("LIGHTVELA_KEY")
+    if lv_key:
+        providers.append({
+            "name": "lightvela",
+            "keys": [k.strip() for k in lv_key.split(",") if k.strip()],
+            "model": _get("LIGHTVELA_MODEL", "auto"),
+            "base_url": "https://token.lightvela.ai/v1/chat/completions",
+            "style": "openai",
+        })
+
+    # 2. OpenRouter
     keys_env = _get("OPENROUTER_KEYS") or _get("API_KEYS")
     if keys_env:
         keys = [k.strip() for k in keys_env.split(",") if k.strip()]
-        return [{
+        providers.append({
             "name": "openrouter",
             "keys": keys,
             "model": _get("OPENROUTER_MODEL", "google/gemini-2.0-flash-001"),
             "base_url": "https://openrouter.ai/api/v1/chat/completions",
             "style": "openai",
+        })
+    if not providers and "PROVIDERS" in _FILE:
+        providers = list(_FILE["PROVIDERS"])
+    if not providers:
+        providers = [{
+            "name": "openrouter",
+            "keys": ["sk-or-v1-xxxxxxxx"],
+            "model": "google/gemini-2.0-flash-001",
+            "base_url": "https://openrouter.ai/api/v1/chat/completions",
+            "style": "openai",
         }]
-    if "PROVIDERS" in _FILE:
-        return _FILE["PROVIDERS"]
-    return [{
-        "name": "openrouter",
-        "keys": ["sk-or-v1-xxxxxxxx"],
-        "model": "google/gemini-2.0-flash-001",
-        "base_url": "https://openrouter.ai/api/v1/chat/completions",
-        "style": "openai",
-    }]
+    return providers
 
 
 class Config:

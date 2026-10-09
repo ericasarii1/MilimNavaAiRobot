@@ -25,7 +25,8 @@ TOOL_MANIFEST = (
     '{"tool":"wiki","query":"..."}       → fakta ensiklopedia\n'
     '{"tool":"weather","place":"..."}    → cuaca kota\n'
     '{"tool":"calc","expression":"..."}  → hitung matematika presisi\n'
-    '{"tool":"read_url","url":"..."}     → baca isi halaman web\n\n'
+    '{"tool":"read_url","url":"..."}     → baca isi halaman web\n'
+    '{"tool":"anime","query":"..."}      → info anime/manga (skor, episode)\n\n'
     "Atau jawab langsung pertanyaannya (tanpa JSON) kalau tidak butuh tool. "
     "Kamu boleh memakai tool hingga 3 kali berurutan sebelum jawab final.")
 
@@ -49,6 +50,9 @@ async def run_tool(tool: str, **kw) -> str:
             return ST.try_calculate(kw.get("expression", "")) or "(bukan ekspresi valid)"
         if tool == "read_url":
             return (await ST.read_url(kw.get("url", "")))[:3000] or "(gagal baca)"
+        if tool == "anime":
+            from MilimNavaAiRobot.modules import anime as AN
+            return (await AN.lookup(kw.get("query", ""))) or "(tidak ditemukan)"
     except Exception as e:
         log.debug(f"tool {tool} err: {e}")
         return f"(tool error: {e})"

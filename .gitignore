@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 session/
 *.session-journal
+config.py
+.env
+log.txt

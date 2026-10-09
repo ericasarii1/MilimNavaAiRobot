@@ -14,11 +14,25 @@ AI Telegram Bot dengan 2 kepribadian (Formal & Santai), multi-provider LLM, dan 
 - 🚦 Antispam, batch merge, typing indicator, thinking status ala Claude/Gemini
 
 ## Setup
-1. Edit `MilimNavaAiRobot/__init__.py` → bagian `Config`:
-   isi `API_ID`, `API_HASH`, `TOKEN`, `OWNER_ID`, `MONGODB_URI` + minimal 1 `PROVIDERS` key
-2. `pip install -r requirements.txt`
-3. Jalankan:
+**Cara 1 — .env (direkomendasikan):**
 ```
+cp .env.example .env
+# lalu isi API_ID, API_HASH, TOKEN, OWNER_ID, MONGODB_URI, OPENROUTER_KEYS
+```
+
+**Cara 2 — config.py (ala SaitamaRobot):**
+```
+cp MilimNavaAiRobot/sample_config.py MilimNavaAiRobot/config.py
+# lalu edit nilainya langsung (config.py otomatis di-gitignore)
+```
+
+**Cara 3 — Railway:** isi semua sebagai Variables di dashboard (API_ID, API_HASH, TOKEN, OWNER_ID, MONGODB_URI, OPENROUTER_KEYS=...)
+
+Prioritas: environment variables → config.py → default.
+
+Lalu:
+```
+pip install -r requirements.txt
 python -m MilimNavaAiRobot
 ```
 
@@ -29,8 +43,9 @@ MilimNavaAiRobot/          (repo root)
 ├── requirements.txt
 ├── .gitignore
 └── MilimNavaAiRobot/      (package utama)
-    ├── __init__.py        # Config + client + singleton (db, llm, memory, state)
+    ├── __init__.py        # Config loader (.env/config.py/default) + client + singletons
     ├── __main__.py        # entry point — auto-load semua modul
+    ├── sample_config.py   # template config (rename jadi config.py untuk pakai)
     ├── database/
     │   └── db.py          # MongoDB/Redis/PostgreSQL + fallback in-memory
     └── modules/

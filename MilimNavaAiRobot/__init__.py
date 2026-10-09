@@ -23,50 +23,109 @@ LOGGER = logging.getLogger("MilimNavaAiRobot")
 
 
 # ══════════════════════════════════════════════════════════════════
-#   KONFIGURASI — isi di sini, tanpa .env
+#   KONFIGURASI — ala SaitamaRobot:
+#   1. .env / environment variables (prioritas utama)
+#   2. config.py di folder package (rename dari sample_config.py)
+#   3. Default di bawah (fallback terakhir)
 # ══════════════════════════════════════════════════════════════════
 
-class Config:
-    # REQUIRED — dari https://my.telegram.org dan @BotFather
-    API_ID = 123456              # integer
-    API_HASH = "isi_api_hash"
-    TOKEN = "isi_bot_token"
-    OWNER_ID = 8907450541        # user id owner (bisa clear database)
+import os
 
-    # DATABASE — MongoDB Atlas / Redis / PostgreSQL (boleh salah satu,
-    # barengan, atau kosongkan URI lain; minimal 1)
-    MONGODB_URI = ""             # ex: mongodb+srv://user:pass@cluster/
-    MONGODB_DB = "milim"
-    REDIS_URL = ""               # ex: redis://default:pass@host:6379
-    POSTGRES_DSN = ""            # ex: postgresql://user:pass@host/db
+# load .env sederhana (tanpa dependency)
+_ENV = {}
+try:
+    from pathlib import Path as _P
+    _env_file = _P(__file__).parent.parent / ".env"
+    if _env_file.exists():
+        for _line in _env_file.read_text().splitlines():
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                _ENV.setdefault(_k.strip(), _v.strip())
+except Exception:
+    pass
 
-    # LLM PROVIDERS — urutan = prioritas fallback; keys bisa unlimited
-    # style: openai (OpenRouter/Groq/DeepSeek/dll) | gemini | anthropic
-    PROVIDERS = [
-        {
+
+def _get(name, default=None):
+    return os.environ.get(name) or _ENV.get(name) or default
+
+
+try:
+    from MilimNavaAiRobot.config import Config as _FileConfig
+    _FILE = {k: getattr(_FileConfig, k) for k in dir(_FileConfig)
+             if not k.startswith("_") and k.isupper()}
+except ImportError:
+    _FILE = {}
+
+
+def _cfg(name, default):
+    v = _get(name)
+    if v is not None:
+        return v
+    return _FILE.get(name, default)
+
+
+def _cfg_int(name, default):
+    try:
+        return int(_cfg(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _cfg_providers():
+    """PROVIDERS dari env (OPENROUTER_KEYS=...) atau config.py atau default."""
+    keys_env = _get("OPENROUTER_KEYS") or _get("API_KEYS")
+    if keys_env:
+        keys = [k.strip() for k in keys_env.split(",") if k.strip()]
+        return [{
             "name": "openrouter",
-            "keys": ["sk-or-v1-xxxxxxxx"],
-            "model": "google/gemini-2.0-flash-001",
+            "keys": keys,
+            "model": _get("OPENROUTER_MODEL", "google/gemini-2.0-flash-001"),
             "base_url": "https://openrouter.ai/api/v1/chat/completions",
             "style": "openai",
-        },
-    ]
+        }]
+    if "PROVIDERS" in _FILE:
+        return _FILE["PROVIDERS"]
+    return [{
+        "name": "openrouter",
+        "keys": ["sk-or-v1-xxxxxxxx"],
+        "model": "google/gemini-2.0-flash-001",
+        "base_url": "https://openrouter.ai/api/v1/chat/completions",
+        "style": "openai",
+    }]
+
+
+class Config:
+    # REQUIRED
+    API_ID = _cfg_int("API_ID", 123456)
+    API_HASH = _cfg("API_HASH", "isi_api_hash")
+    TOKEN = _cfg("TOKEN", "isi_bot_token")
+    OWNER_ID = _cfg_int("OWNER_ID", 8907450541)
+
+    # DATABASE
+    MONGODB_URI = _cfg("MONGODB_URI", "")
+    MONGODB_DB = _cfg("MONGODB_DB", "milim")
+    REDIS_URL = _cfg("REDIS_URL", "")
+    POSTGRES_DSN = _cfg("POSTGRES_DSN", "")
+
+    # LLM
+    PROVIDERS = _cfg_providers()
 
     # BEHAVIOUR
-    TZ_OFFSET = 7                # WIB
-    MAX_CONTEXT_MSGS = 30        # riwayat personal per user
-    GROUP_THREAD_LIMIT = 40      # thread grup utuh
-    BATCH_WINDOW = 3.0           # detik tunggu batch merge spam
-    ANTISPAM_BURST = 8           # maks pesan per window
-    ANTISPAM_WINDOW = 60
-    ANTISPAM_MIN_INTERVAL = 1.2  # jeda minimal antar pesan per user
-    PROVIDER_RPM = 55            # rate limit per provider per menit
-    KEY_COOLDOWN_RATE = 300      # detik key istirahat saat limit
-    KEY_COOLDOWN_AUTH = 86400    # key invalid → ditinggal sehari
-    KEY_COOLDOWN_ERR = 60
-    PROVIDER_COOLDOWN = 300
-    REQUEST_TIMEOUT = 120
-    LOG_LEVEL = "INFO"
+    TZ_OFFSET = _cfg_int("TZ_OFFSET", 7)
+    MAX_CONTEXT_MSGS = _cfg_int("MAX_CONTEXT_MSGS", 30)
+    GROUP_THREAD_LIMIT = _cfg_int("GROUP_THREAD_LIMIT", 40)
+    BATCH_WINDOW = float(_cfg("BATCH_WINDOW", 3.0))
+    ANTISPAM_BURST = _cfg_int("ANTISPAM_BURST", 8)
+    ANTISPAM_WINDOW = _cfg_int("ANTISPAM_WINDOW", 60)
+    ANTISPAM_MIN_INTERVAL = float(_cfg("ANTISPAM_MIN_INTERVAL", 1.2))
+    PROVIDER_RPM = _cfg_int("PROVIDER_RPM", 55)
+    KEY_COOLDOWN_RATE = _cfg_int("KEY_COOLDOWN_RATE", 300)
+    KEY_COOLDOWN_AUTH = _cfg_int("KEY_COOLDOWN_AUTH", 86400)
+    KEY_COOLDOWN_ERR = _cfg_int("KEY_COOLDOWN_ERR", 60)
+    PROVIDER_COOLDOWN = _cfg_int("PROVIDER_COOLDOWN", 300)
+    REQUEST_TIMEOUT = _cfg_int("REQUEST_TIMEOUT", 120)
+    LOG_LEVEL = _cfg("LOG_LEVEL", "INFO")
 
 
 import re as _re

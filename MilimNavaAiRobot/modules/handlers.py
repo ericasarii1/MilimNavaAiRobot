@@ -28,6 +28,7 @@ from MilimNavaAiRobot.modules import smart_enhance as SE
 from MilimNavaAiRobot.modules import media_gen as MG
 from MilimNavaAiRobot.modules import agent as AG
 from MilimNavaAiRobot.modules import lang as LG
+from MilimNavaAiRobot.modules import group_stats as GS
 
 log = logging.getLogger("milim.handlers")
 
@@ -70,11 +71,19 @@ async def ai_respond(client, message: Message, user_text: str,
     # PENTING: tag [nama, waktu] hanyalah metadata riwayat — WAJIB
     # diinstruksikan agar tidak pernah disalin ke jawaban.
     if chat.type != enums.ChatType.PRIVATE:
-        for g in await memory.get_group(chat.id):
+        ghist = await memory.get_group(chat.id)
+        for g in ghist:
             who = g.get("speaker", "?")
             ts = humanize_delta(time.time() - g.get("ts", time.time()))
             msgs.append({"role": g.get("role", "user"),
                          "content": f"(pesan dari {who}, {ts}) {g['content']}"})
+        # statistik grup sebagai pengetahuan (bukan command — AI selalu tau)
+        try:
+            stats = GS.build_stats(ghist)
+            if stats:
+                system += stats
+        except Exception as e:
+            log.debug(f"gstats err: {e}")
 
     # riwayat personal user (fitur 7, 22)
     for h in await memory.get(chat.id, user.id):

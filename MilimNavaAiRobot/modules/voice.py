@@ -148,6 +148,17 @@ async def handle_voice(client, message: Message):
     key = VOICE_MODE_KEY.format(chat_id=message.chat.id)
     mode = (await db.get(key)) or "auto"
 
+    # ── HORMATI MODE: voice hanya diproses kalau bot diizinkan bicara ──
+    is_private = message.chat.type == enums.ChatType.PRIVATE
+    if not st["speaking"] and not is_private:
+        return  # mode diam → voice diabaikan total
+    if st["chatbot"] == "off" and not is_private:
+        # off: hanya kalau reply ke bot sendiri
+        replied = message.reply_to_message
+        if not (replied and replied.from_user
+                and replied.from_user.id == client.me.id):
+            return
+
     if not GROQ_API_KEY and not C.PROVIDERS:
         formal = st["conv"] == "formal"
         txt = ("Maaf, transkripsi suara tidak tersedia saat ini. "

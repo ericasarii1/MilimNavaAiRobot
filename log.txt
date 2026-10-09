@@ -1,0 +1,1 @@
+2026-10-09 11:14:20,372 | WARNING | milim.db | Tidak ada database backend aktif — memakai fallback IN-MEMORY (data hilang saat bot restart).

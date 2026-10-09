@@ -7,7 +7,7 @@
 import json
 import time
 
-import config as C
+from MilimNavaAiRobot import C
 
 
 class Memory:

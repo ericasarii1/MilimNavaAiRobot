@@ -15,7 +15,7 @@ from typing import Optional
 
 import aiohttp
 
-import config as C
+from MilimNavaAiRobot import C
 
 log = logging.getLogger("milim.llm")
 

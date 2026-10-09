@@ -7,7 +7,7 @@ import time
 import asyncio
 import logging
 
-import config as C
+from MilimNavaAiRobot import C
 
 log = logging.getLogger("milim.util")
 

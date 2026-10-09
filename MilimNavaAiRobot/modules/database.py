@@ -17,6 +17,7 @@ class Database:
         self.redis = None
         self.pg = None
         self.lock = asyncio.Lock()
+        self._mem = {}          # fallback in-memory bila tidak ada backend / backend down
 
         if mongo_uri:
             try:
@@ -56,14 +57,19 @@ class Database:
                 self.pg = None
 
         if not (self.mongo or self.redis or self.pg):
-            raise RuntimeError("Minimal satu database harus aktif!")
+            log.warning(
+                "Tidak ada database backend aktif — memakai fallback "
+                "IN-MEMORY (data hilang saat bot restart)."
+            )
 
     @property
     def backends(self):
-        return [b for b in ("mongo", "redis", "pg") if getattr(self, b)]
+        b = [b for b in ("mongo", "redis", "pg") if getattr(self, b)]
+        return b or ["memory"]
 
     async def set(self, key: str, value: str):
         async with self.lock:
+            self._mem[key] = value
             if self.mongo:
                 try:
                     self.mongo.kv.update_one(
@@ -111,10 +117,12 @@ class Database:
                         return row[0]
                 except Exception as e:
                     log.debug(f"pg get err: {e}")
+            return self._mem.get(key)
         return None
 
     async def delete(self, key: str):
         async with self.lock:
+            self._mem.pop(key, None)
             if self.mongo:
                 try:
                     self.mongo.kv.delete_one({"_id": key})
@@ -152,6 +160,8 @@ class Database:
                     out = [r[0] for r in cur.fetchall()]
                 except Exception:
                     pass
+            if not out:
+                out = [k for k in self._mem if k.startswith(prefix)]
         return out
 
     async def clear_all(self):

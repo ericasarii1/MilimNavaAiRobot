@@ -241,13 +241,13 @@ async def handle_commands(client, message: Message):
         await state.set(chat_id, conv="santai")
         await message.reply_text(P.mode_switch_text("santai"), quote=True)
     elif cmd in ("chatbot on", "chatbot nyala"):
-        await state.set(chat_id, chatbot="on")
+        await state.set(chat_id, chatbot="on", speaking=True)
         await message.reply_text(P.chatbot_switch_text("on", st["conv"]), quote=True)
     elif cmd in ("chatbot off", "chatbot mati"):
         await state.set(chat_id, chatbot="off")
         await message.reply_text(P.chatbot_switch_text("off", st["conv"]), quote=True)
     elif cmd in ("chatbot smart", "chatbot pintar"):
-        await state.set(chat_id, chatbot="smart")
+        await state.set(chat_id, chatbot="smart", speaking=True)
         await message.reply_text(P.chatbot_switch_text("smart", st["conv"]), quote=True)
     elif cmd == "diam":
         await state.set(chat_id, speaking=False)

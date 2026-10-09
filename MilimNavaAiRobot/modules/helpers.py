@@ -142,6 +142,7 @@ class Thinker:
 QUESTION_HINTS = re.compile(
     r"(apa|apakah|siapa|kapan|dimana|di mana|bagaimana|gimana|kenapa|mengapa|"
     r"tolong|bantu|bisa|jelaskan|berapa|coba|buatkan|carikan|"
+    r"yang mana|yang mananya|kok bisa|kok gitu|"
     r"\?|help|bantuan|how|what|why|who|when|where)", re.IGNORECASE
 )
 

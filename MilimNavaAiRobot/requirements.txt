@@ -1,7 +1,0 @@
-pyrogram==2.0.106
-tgcrypto
-pymongo
-redis
-psycopg2-binary
-aiohttp
-pillow

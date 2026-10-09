@@ -81,7 +81,7 @@ C = Config
 #   SINGLETONS — db, llm, memory, state, app
 # ══════════════════════════════════════════════════════════════════
 
-from MilimNavaAiRobot.modules.database import Database    # noqa: E402
+from MilimNavaAiRobot.database.db import Database          # noqa: E402
 from MilimNavaAiRobot.modules.ai import LLM               # noqa: E402
 from MilimNavaAiRobot.modules.memory import Memory        # noqa: E402
 from MilimNavaAiRobot.modules.state import StateManager   # noqa: E402

@@ -22,21 +22,26 @@ AI Telegram Bot dengan 2 kepribadian (Formal & Santai), multi-provider LLM, dan 
 python -m MilimNavaAiRobot
 ```
 
-## Struktur (ala SaitamaRobot)
+## Struktur
 ```
-MilimNavaAiRobot/
-├── __init__.py          # Config + client + singleton (db, llm, memory, state)
-├── __main__.py          # entry point — auto-load semua modul
-└── modules/
-    ├── __init__.py      # auto-loader (ALL_MODULES)
-    ├── ai.py            # LLM multi-provider (sticky + fallback)
-    ├── database.py      # MongoDB/Redis/PostgreSQL + fallback in-memory
-    ├── handlers.py      # semua handler (command, message, group event)
-    ├── helpers.py       # waktu, antispam, batcher, thinker, should_respond
-    ├── media.py         # media reader semua tipe
-    ├── memory.py        # riwayat per user + thread grup
-    ├── prompts.py       # 2 prompt (Formal & Santai) + semua teks
-    └── state.py         # state per chat (conv/speaking/chatbot)
+MilimNavaAiRobot/          (repo root)
+├── README.md
+├── requirements.txt
+├── .gitignore
+└── MilimNavaAiRobot/      (package utama)
+    ├── __init__.py        # Config + client + singleton (db, llm, memory, state)
+    ├── __main__.py        # entry point — auto-load semua modul
+    ├── database/
+    │   └── db.py          # MongoDB/Redis/PostgreSQL + fallback in-memory
+    └── modules/
+        ├── __init__.py    # auto-loader (ALL_MODULES)
+        ├── ai.py          # LLM multi-provider (sticky + fallback)
+        ├── handlers.py    # semua handler (command, message, group event)
+        ├── helpers.py     # waktu, antispam, batcher, thinker, should_respond
+        ├── media.py       # media reader semua tipe
+        ├── memory.py      # riwayat per user + thread grup
+        ├── prompts.py     # 2 prompt (Formal & Santai) + semua teks
+        └── state.py       # state per chat (conv/speaking/chatbot)
 ```
 
 ## Cara nambah fitur baru

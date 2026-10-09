@@ -13,7 +13,7 @@ from pyrogram import filters, enums
 from pyrogram.types import Message, ChatMemberUpdated
 from pyrogram.errors import FloodWait
 
-from MilimNavaAiRobot import C, app, db, llm, memory, state
+from MilimNavaAiRobot import C, app, db, llm, memory, state, NAMES_RE, CMD_RE
 from MilimNavaAiRobot.modules import prompts as P
 from MilimNavaAiRobot.modules.ai import LLMError
 from MilimNavaAiRobot.modules.helpers import (should_respond, now_str,
@@ -104,7 +104,7 @@ async def handle_commands(client, message: Message):
         return
 
     raw = (message.text or message.caption or "").strip()
-    m = C.CMD_RE.match(raw)
+    m = CMD_RE.match(raw)
     if not m:
         return
     cmd = m.group(2).strip().lower()

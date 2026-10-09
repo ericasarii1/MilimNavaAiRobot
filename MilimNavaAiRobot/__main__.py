@@ -39,8 +39,10 @@ async def cmd_status(client, message: Message):
 
 
 async def main():
-    await startup()
-    await asyncio.Event().wait()
+    async with app:                      # start + connect client
+        await startup()
+        from pyrogram import idle
+        await idle()                     # jalan sampai dimatikan
 
 
 if __name__ == "__main__":

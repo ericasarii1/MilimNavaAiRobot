@@ -206,3 +206,46 @@ class LLM:
             if r.status >= 400:
                 raise RuntimeError(f"{p.name} http {r.status}: {str(body)[:200]}")
             return body["content"][0]["text"]
+
+
+    # ── STT: transkripsi audio memakai SEMUA provider/key yang ada ──
+    async def transcribe(self, audio: bytes, filename: str = "voice.ogg",
+                         language: str = "id") -> str:
+        """Coba endpoint /audio/transcriptions di tiap provider/key.
+        Return teks atau '' kalau tak ada yang mendukung."""
+        # daftar model yang umum tersedia di gateway multi-model
+        models = ["whisper-large-v3", "whisper-large-v3-turbo",
+                  "whisper-1", "whisper", "speech-to-text", "auto"]
+        total = len(self.providers)
+        for attempt in range(total):
+            p = self.providers[(self.p_idx + attempt) % total]
+            # endpoint transkripsi = base_url tanpa /chat/completions
+            base = p.base_url.replace("/chat/completions", "") \
+                .replace("/v1/chat/completions", "/v1")
+            if not base.endswith("/v1") and "/v1" not in base:
+                base = base.rstrip("/") + "/v1"
+            url = base.rstrip("/") + "/audio/transcriptions"
+            for k_idx, key in enumerate(p.keys):
+                for model in models:
+                    try:
+                        form = aiohttp.FormData()
+                        form.add_field("file", audio, filename=filename,
+                                       content_type="audio/ogg")
+                        form.add_field("model", model)
+                        form.add_field("language", language)
+                        async with self.session.post(
+                                url, data=form,
+                                headers={"Authorization": f"Bearer {key}"},
+                                timeout=aiohttp.ClientTimeout(total=60)) as r:
+                            if r.status == 200:
+                                d = await r.json()
+                                txt = (d.get("text") or "").strip()
+                                if txt:
+                                    log.info(f"STT ok via {p.name} "
+                                             f"({model})")
+                                    return txt
+                            elif r.status in (401, 403):
+                                break   # key invalid → key berikutnya
+                    except Exception as e:
+                        log.debug(f"stt {p.name}/{model} err: {e}")
+        return ""

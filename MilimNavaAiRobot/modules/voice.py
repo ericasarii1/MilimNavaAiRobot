@@ -33,32 +33,45 @@ VOICE_MODE_KEY = "voice_mode:{chat_id}"    # "auto" | "teks"
 
 # ─────────────────────────── STT ───────────────────────────
 async def speech_to_text(client, voice) -> str:
-    """Voice note → teks. Return '' kalau gagal/belum dikonfigurasi."""
-    if not GROQ_API_KEY:
-        return ""
+    """Voice note → teks. Coba SEMUA provider API key yang ada
+    (endpoint /audio/transcriptions), lalu GROQ_API_KEY khusus bila di-set."""
     try:
         import aiohttp
         raw = await client.download_media(voice.file_id, in_memory=True)
         data = raw if isinstance(raw, bytes) else raw.getbuffer().tobytes()
-        form = aiohttp.FormData()
-        form.add_field("file", data,
-                       filename="voice.ogg", content_type="audio/ogg")
-        form.add_field("model", STT_MODEL)
-        form.add_field("language", "id")
-        async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=60)) as ses:
-            async with ses.post(GROQ_STT_URL, data=form,
-                                headers={"Authorization":
-                                         f"Bearer {GROQ_API_KEY}"}) as resp:
-                if resp.status != 200:
-                    log.debug(f"groq stt {resp.status}: "
-                              f"{(await resp.text())[:150]}")
-                    return ""
-                d = await resp.json()
-                return (d.get("text") or "").strip()
     except Exception as e:
-        log.debug(f"stt err: {e}")
+        log.debug(f"voice dl err: {e}")
         return ""
+
+    # 1) semua provider LLM yang aktif (lightvela, openrouter, dll)
+    try:
+        from MilimNavaAiRobot import llm as _llm
+        txt = await _llm.transcribe(data)
+        if txt:
+            return txt
+    except Exception as e:
+        log.debug(f"llm.transcribe err: {e}")
+
+    # 2) fallback: GROQ key khusus (kalau di-set)
+    if GROQ_API_KEY:
+        try:
+            form = aiohttp.FormData()
+            form.add_field("file", data,
+                           filename="voice.ogg", content_type="audio/ogg")
+            form.add_field("model", STT_MODEL)
+            form.add_field("language", "id")
+            async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=60)) as ses:
+                async with ses.post(GROQ_STT_URL, data=form,
+                                    headers={"Authorization":
+                                             f"Bearer {GROQ_API_KEY}"}) as resp:
+                    if resp.status == 200:
+                        d = await resp.json()
+                        return (d.get("text") or "").strip()
+                    log.debug(f"groq stt {resp.status}")
+        except Exception as e:
+            log.debug(f"groq stt err: {e}")
+    return ""
 
 
 # ─────────────────────────── TTS ───────────────────────────
@@ -135,18 +148,13 @@ async def handle_voice(client, message: Message):
     key = VOICE_MODE_KEY.format(chat_id=message.chat.id)
     mode = (await db.get(key)) or "auto"
 
-    if not GROQ_API_KEY:
-        # belum ada key STT — info sekaligus tunjukkan TTS jalan
+    if not GROQ_API_KEY and not C.PROVIDERS:
         formal = st["conv"] == "formal"
-        txt = ("Maaf, transkripsi suara belum dikonfigurasi (butuh "
-               "GROQ_API_KEY). Sementara aku hanya bisa berbicara, "
-               "belum bisa mendengar. Tambahkan GROQ_API_KEY gratis di "
-               "console.groq.com.")
+        txt = ("Maaf, transkripsi suara tidak tersedia saat ini. "
+               "Sementara aku hanya bisa berbicara, belum mendengar.")
         if not formal:
             txt = ("Waduh, gue belum bisa denger suara nih 😅 tapi gue "
-                   "bisa ngomong! Nih dengerin deh, dan kalau mau gue "
-                   "bisa denger, minta bos tambahin GROQ_API_KEY gratis "
-                   "di console.groq.com ya!")
+                   "bisa ngomong loh!")
         await reply_voice(message, txt, formal)
         return
 

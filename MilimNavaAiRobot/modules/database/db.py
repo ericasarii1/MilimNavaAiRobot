@@ -56,7 +56,7 @@ class Database:
                 log.warning(f"PostgreSQL gagal: {e}")
                 self.pg = None
 
-        if not (self.mongo or self.redis or self.pg):
+        if not (self.mongo is not None or self.redis is not None or self.pg is not None):
             log.warning(
                 "Tidak ada database backend aktif — memakai fallback "
                 "IN-MEMORY (data hilang saat bot restart)."
@@ -64,25 +64,25 @@ class Database:
 
     @property
     def backends(self):
-        b = [b for b in ("mongo", "redis", "pg") if getattr(self, b)]
+        b = [b for b in ("mongo", "redis", "pg") if getattr(self, b) is not None]
         return b or ["memory"]
 
     async def set(self, key: str, value: str):
         async with self.lock:
             self._mem[key] = value
-            if self.mongo:
+            if self.mongo is not None:
                 try:
                     self.mongo.kv.update_one(
                         {"_id": key}, {"$set": {"v": value}}, upsert=True
                     )
                 except Exception as e:
                     log.debug(f"mongo set err: {e}")
-            if self.redis:
+            if self.redis is not None:
                 try:
                     await self.redis.set(key, value)
                 except Exception as e:
                     log.debug(f"redis set err: {e}")
-            if self.pg:
+            if self.pg is not None:
                 try:
                     self.pg.cursor().execute(
                         "INSERT INTO milim_kv (key, value) VALUES (%s, %s) "
@@ -94,21 +94,21 @@ class Database:
 
     async def get(self, key: str) -> Optional[str]:
         async with self.lock:
-            if self.mongo:
+            if self.mongo is not None:
                 try:
                     doc = self.mongo.kv.find_one({"_id": key})
                     if doc:
                         return doc["v"]
                 except Exception as e:
                     log.debug(f"mongo get err: {e}")
-            if self.redis:
+            if self.redis is not None:
                 try:
                     v = await self.redis.get(key)
                     if v:
                         return v
                 except Exception as e:
                     log.debug(f"redis get err: {e}")
-            if self.pg:
+            if self.pg is not None:
                 try:
                     cur = self.pg.cursor()
                     cur.execute("SELECT value FROM milim_kv WHERE key = %s", (key,))
@@ -123,17 +123,17 @@ class Database:
     async def delete(self, key: str):
         async with self.lock:
             self._mem.pop(key, None)
-            if self.mongo:
+            if self.mongo is not None:
                 try:
                     self.mongo.kv.delete_one({"_id": key})
                 except Exception:
                     pass
-            if self.redis:
+            if self.redis is not None:
                 try:
                     await self.redis.delete(key)
                 except Exception:
                     pass
-            if self.pg:
+            if self.pg is not None:
                 try:
                     self.pg.cursor().execute("DELETE FROM milim_kv WHERE key = %s", (key,))
                 except Exception:
@@ -142,18 +142,18 @@ class Database:
     async def keys(self, prefix: str):
         out = []
         async with self.lock:
-            if self.redis:
+            if self.redis is not None:
                 try:
                     out = [k async for k in self.redis.scan_iter(f"{prefix}*")]
                 except Exception:
                     pass
-            if not out and self.mongo:
+            if not out and self.mongo is not None:
                 try:
                     out = [d["_id"] for d in self.mongo.kv.find(
                         {"_id": {"$regex": f"^{prefix}"}})]
                 except Exception:
                     pass
-            if not out and self.pg:
+            if not out and self.pg is not None:
                 try:
                     cur = self.pg.cursor()
                     cur.execute("SELECT key FROM milim_kv WHERE key LIKE %s", (prefix + "%",))

@@ -7,7 +7,7 @@ import time
 import asyncio
 import logging
 
-from MilimNavaAiRobot import C
+from MilimNavaAiRobot import C, NAMES_RE
 
 log = logging.getLogger("milim.util")
 
@@ -150,7 +150,7 @@ def should_respond(st: dict, text: str, user_id: int) -> tuple:
     if not st["speaking"]:
         return False, "diam"
 
-    named = bool(C.NAMES_RE.search(text or ""))
+    named = bool(NAMES_RE.search(text or ""))
     if st["chatbot"] == "on":
         return True, "on"
     if st["chatbot"] == "off":

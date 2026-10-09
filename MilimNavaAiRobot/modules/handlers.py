@@ -23,6 +23,7 @@ from MilimNavaAiRobot.modules.media import read_media
 
 log = logging.getLogger("milim.handlers")
 
+_handled = {}   # message_id -> True (command sudah diproses)
 antispam = AntiSpam()
 batcher = Batcher()
 _last_seen = {}     # chat_id -> ts (anti spam revive, fitur 18)
@@ -147,6 +148,9 @@ async def handle_commands(client, message: Message):
     else:
         return   # bukan command → biar main handler proses
     mark_active(chat_id)
+    # tandai pesan ini sudah diproses sebagai command agar
+    # handle_message (group=2) mengabaikannya
+    _handled[message.id] = True
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -155,6 +159,8 @@ async def handle_commands(client, message: Message):
 
 @app.on_message(filters.group | filters.private, group=2)
 async def handle_message(client, message: Message):
+    if message.id in _handled:
+        return
     if not message.from_user or message.from_user.is_bot:
         return
 

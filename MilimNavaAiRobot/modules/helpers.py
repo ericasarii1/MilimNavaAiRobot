@@ -208,6 +208,9 @@ _META_PREFIX = re.compile(
     r"|\[[^\]\n]{0,40}?,\s*(?:baru saja|\d+\s*(?:detik|menit|jam|hari"
     r"|minggu|bulan|tahun)\s*yang lalu)\]\s*:?\s*"
     r"|\(\s*pesan dari [^)\n]{0,40}\)\s*[:\-]?\s*"
+    r"|\(\s*info waktu\s*:\s*(?:dikirim\s*)?"
+    r"(?:baru saja|\d+\s*(?:detik|menit|jam|hari|minggu|bulan|tahun)"
+    r"\s*(?:yang\s+)?lalu?)\s*\)\s*[:\-]?\s*"
     r")+", re.IGNORECASE)
 
 

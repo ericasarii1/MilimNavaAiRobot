@@ -214,9 +214,16 @@ _META_PREFIX = re.compile(
     r")+", re.IGNORECASE)
 
 
+_META_ANYWHERE = re.compile(
+    r"\s*\(\s*info waktu\s*:\s*(?:dikirim\s*)?"
+    r"(?:baru saja|\d+\s*(?:detik|menit|jam|hari|minggu|bulan|tahun)"
+    r"\s*(?:yang\s+)?lalu?)\s*\)\s*",
+    re.IGNORECASE)
+
+
 def strip_meta_prefix(text: str) -> str:
-    """Buang awalan metadata ([nama, waktu] / (5 menit yang lalu) /
-    (pesan dari X)) yang kadang disalin LLM ke jawaban."""
+    """Buang metadata ([nama, waktu] / (5 menit yang lalu) / (pesan dari X) /
+    (info waktu: ...)) yang disalin LLM ke jawaban — awalan maupun di tengah."""
     if not text:
         return text
     out = text
@@ -225,4 +232,7 @@ def strip_meta_prefix(text: str) -> str:
         if new == out:
             break
         out = new.lstrip()
-    return out
+    # sisanya di tengah kalimat pun dibuang
+    out = _META_ANYWHERE.sub(" ", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    return out.strip() if not text.endswith("\n") else out

@@ -35,6 +35,7 @@ from MilimNavaAiRobot.modules import human_touch as HT
 from MilimNavaAiRobot.modules import lifedata as LD
 from MilimNavaAiRobot.modules import sticker_reply as SR
 from MilimNavaAiRobot.modules import cross_chat as CC
+from MilimNavaAiRobot.modules import brainbox as BB
 
 log = logging.getLogger("milim.handlers")
 
@@ -98,6 +99,14 @@ async def ai_respond(client, message: Message, user_text: str,
                 system += anime_ctx
         except Exception as e:
             log.debug(f"anime err: {e}")
+
+        # brainbox: zona waktu/konversi satuan/analisis kode (kemampuan)
+        try:
+            bb = BB.maybe_inject(user_text or "")
+            if bb:
+                system += bb
+        except Exception as e:
+            log.debug(f"brainbox err: {e}")
 
         # lifedata: kurs/crypto/jadwal sholat real-time (kemampuan)
         try:

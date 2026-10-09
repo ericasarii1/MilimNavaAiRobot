@@ -20,6 +20,9 @@ from MilimNavaAiRobot.modules.helpers import (should_respond, now_str,
                                               humanize_delta, AntiSpam,
                                               Batcher, Thinker, TypingLoop)
 from MilimNavaAiRobot.modules.media import read_media
+from MilimNavaAiRobot.modules import web_search as WS
+from MilimNavaAiRobot.modules import long_term_memory as LTM
+from MilimNavaAiRobot.modules import persona as PR
 
 log = logging.getLogger("milim.handlers")
 
@@ -51,6 +54,12 @@ async def ai_respond(client, message: Message, user_text: str,
               f"\n\nINFORMASI WAKTU SAAT INI: {now_str()}." +
               f"\nUSER ID Telegram penanya: {user.id}. Nama: {user.first_name}.")
 
+    # persona tambahan (dari owner)
+    system += PR.persona_prompt(await PR.get_persona())
+
+    # memori jangka panjang
+    system += LTM.ltm_prompt(await LTM.get_ltm(chat.id, user.id))
+
     msgs = [{"role": "system", "content": system}]
 
     # thread grup utuh (fitur 33)
@@ -70,6 +79,17 @@ async def ai_respond(client, message: Message, user_text: str,
     final_text = user_text
     if media_desc:
         final_text = f"{user_text}\n\n{media_desc}" if user_text else media_desc
+
+    # web search real-time untuk pertanyaan yang butuh info terkini
+    if user_text:
+        try:
+            search_ctx = await WS.maybe_search_and_inject(user_text)
+            if search_ctx:
+                system += search_ctx
+                msgs[0] = {"role": "system", "content": system}
+        except Exception as e:
+            log.debug(f"websearch inject err: {e}")
+
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
 
     return await llm.chat(msgs, image_b64=media_b64)
@@ -236,6 +256,12 @@ async def handle_message(client, message: Message):
     else:
         await memory.add_group(chat_id, "Milim", "assistant", answer)
         await memory.add(chat_id, user_id, "assistant", answer)
+
+    # long-term memory: mungkin trigger ringkasan otomatis
+    try:
+        await LTM.bump_and_maybe_summarize(chat_id, user_id)
+    except Exception as e:
+        log.debug(f"ltm bump err: {e}")
 
     mark_active(chat_id)
 

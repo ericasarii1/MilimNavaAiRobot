@@ -18,7 +18,7 @@ from MilimNavaAiRobot.modules import prompts as P
 from MilimNavaAiRobot.modules.ai import LLMError
 from MilimNavaAiRobot.modules.helpers import (should_respond, now_str,
                                               humanize_delta, AntiSpam,
-                                              Batcher, Thinker)
+                                              Batcher, Thinker, TypingLoop)
 from MilimNavaAiRobot.modules.media import read_media
 
 log = logging.getLogger("milim.handlers")
@@ -204,14 +204,13 @@ async def handle_message(client, message: Message):
         mark_active(chat_id)
         return
 
+    # typing kontinu — langsung tampil begitu bot mulai memproses
+    typing = await TypingLoop().start(client, chat_id)
+
     # thinking indicator (mode smart saja — fitur 41)
     thinker = Thinker()
     think_msg = await thinker.start(client, chat_id,
                                     smart=(st["chatbot"] == "smart"))
-    try:
-        await client.send_chat_action(chat_id, "typing")
-    except Exception:
-        pass
 
     try:
         answer = await ai_respond(client, message, merged,
@@ -227,10 +226,7 @@ async def handle_message(client, message: Message):
         await thinker.stop(client, think_msg)
         return
     finally:
-        try:
-            await client.send_chat_action(chat_id, enums.ChatAction.CANCEL)
-        except Exception:
-            pass
+        await typing.stop(client, chat_id)
 
     await thinker.stop(client, think_msg)
 

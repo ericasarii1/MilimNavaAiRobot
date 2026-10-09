@@ -7,6 +7,7 @@ import time
 import asyncio
 import logging
 
+from pyrogram import enums
 from MilimNavaAiRobot import C, NAMES_RE
 
 log = logging.getLogger("milim.util")
@@ -161,3 +162,39 @@ def should_respond(st: dict, text: str, user_id: int) -> tuple:
     if text and QUESTION_HINTS.search(text):
         return True, "smart-question"
     return False, ""
+
+
+# ── typing kontinu (Telegram typing hanya ~5 detik) ──────────────
+class TypingLoop:
+    """Kirim ulang 'typing' tiap 4 detik selama AI berpikir,
+    supaya indikator tidak hilang saat model reasoning lama."""
+
+    def __init__(self):
+        self.task = None
+
+    async def start(self, client, chat_id: int):
+        self.task = asyncio.create_task(self._loop(client, chat_id))
+        return self
+
+    async def _loop(self, client, chat_id):
+        try:
+            while True:
+                try:
+                    await client.send_chat_action(chat_id, "typing")
+                except Exception:
+                    pass
+                await asyncio.sleep(4)
+        except asyncio.CancelledError:
+            pass
+
+    async def stop(self, client, chat_id):
+        if self.task:
+            self.task.cancel()
+            try:
+                await self.task
+            except (asyncio.CancelledError, Exception):
+                pass
+        try:
+            await client.send_chat_action(chat_id, enums.ChatAction.CANCEL)
+        except Exception:
+            pass

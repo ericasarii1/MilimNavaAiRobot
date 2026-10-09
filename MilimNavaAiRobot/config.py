@@ -25,13 +25,13 @@ class Config(object):
     LOGGER = True
 
     # REQUIRED
-    API_ID = 123456              # dari https://my.telegram.org
-    API_HASH = "awoo"
-    TOKEN = "BOT_TOKEN"          # dari @BotFather
-    OWNER_ID = 8907450541        # user id owner
+    API_ID = 24714349              # dari https://my.telegram.org
+    API_HASH = "54eb108eb194c40b376cc9a753bf738a"
+    TOKEN = "8327682798:AAEHWxm9jWmNNqMaT8XTB9h6wE9k0oPVMaQ"          # dari @BotFather
+    OWNER_ID = 8250624344        # user id owner
 
     # DATABASE — MongoDB / Redis / PostgreSQL (minimal 1, boleh semua)
-    MONGODB_URI = ""
+    MONGODB_URI = "mongodb+srv://pinivo3229_db_user:b46ve3uqc75xS6GU@milimnavaaidb.bjren1z.mongodb.net"
     MONGODB_DB = "milim"
     REDIS_URL = ""
     POSTGRES_DSN = ""
@@ -41,8 +41,8 @@ class Config(object):
     PROVIDERS = [
         {
             "name": "openrouter",
-            "keys": ["sk-or-v1-xxxxxxxx"],
-            "model": "google/gemini-2.0-flash-001",
+            "keys": ["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"],
+            "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
             "base_url": "https://openrouter.ai/api/v1/chat/completions",
             "style": "openai",
         },

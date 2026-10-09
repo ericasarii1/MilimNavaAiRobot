@@ -24,6 +24,8 @@ from MilimNavaAiRobot.modules import web_search as WS
 from MilimNavaAiRobot.modules import long_term_memory as LTM
 from MilimNavaAiRobot.modules import persona as PR
 from MilimNavaAiRobot.modules import smart_tools as ST
+from MilimNavaAiRobot.modules import smart_enhance as SE
+from MilimNavaAiRobot.modules import media_gen as MG
 
 log = logging.getLogger("milim.handlers")
 
@@ -105,6 +107,7 @@ async def ai_respond(client, message: Message, user_text: str,
             log.debug(f"websearch inject err: {e}")
 
     # link reader: baca isi halaman yang di-share
+    link_ctx = ""
     if user_text:
         try:
             link_ctx = await ST.maybe_read_links(user_text)
@@ -112,6 +115,14 @@ async def ai_respond(client, message: Message, user_text: str,
                 system += link_ctx
         except Exception as e:
             log.debug(f"link read err: {e}")
+
+    # reply chain: utas diskusi utuh (fitur reply berantai)
+    try:
+        chain = await SE.get_reply_chain(message)
+        if chain:
+            system += chain
+    except Exception as e:
+        log.debug(f"reply chain err: {e}")
 
     # kalkulator presisi
     if user_text:
@@ -123,6 +134,14 @@ async def ai_respond(client, message: Message, user_text: str,
         except Exception as e:
             log.debug(f"calc err: {e}")
 
+    # confidence: jangan ngawur (fitur 3)
+    if user_text and len(user_text) > 40:
+        system += SE.CONFIDENT_ADDON
+
+    # feedback/koreksi diri (fitur 6)
+    if getattr(ai_respond, "_needs_clarify", False):
+        system += SE.CLARIFY_INSTRUCTION
+
     msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
 
@@ -133,7 +152,26 @@ async def ai_respond(client, message: Message, user_text: str,
     except Exception as e:
         log.debug(f"deep think err: {e}")
 
-    return await llm.chat(msgs, image_b64=media_b64)
+    answer = await llm.chat(msgs, image_b64=media_b64)
+
+    # fact-check otomatis (fitur 1) — hanya utk jawaban panjang berklaim
+    try:
+        ctx_all = (search_ctx if 'search_ctx' in dir() else "") + link_ctx
+        if user_text and len(user_text) > 60 and len(answer) > 150:
+            answer = await SE.verify_answer(llm, user_text, answer, ctx_all)
+    except Exception as e:
+        log.debug(f"factcheck err: {e}")
+
+    # sumber (fitur 2)
+    try:
+        ctx_all = (search_ctx if 'search_ctx' in dir() else "") + link_ctx
+        footer = SE.sources_footer(ctx_all)
+        if footer:
+            answer += footer
+    except Exception as e:
+        log.debug(f"sumber err: {e}")
+
+    return answer
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -254,6 +292,14 @@ async def handle_message(client, message: Message):
 
     respond, reason = should_respond(st, text, user_id)
 
+    # reaction pintar: kadang cukup emoji, tanpa paragraf (fitur 9)
+    if not respond and st["speaking"] and st["chatbot"] == "on" \
+            and not is_private:
+        emo = MG.maybe_should_react(chat_id, text)
+        if emo:
+            await MG.send_reaction(client, message, emo)
+            return
+
     # reply ke pesan bot = pemicu respon (mode smart & off)
     if not respond and st["speaking"] and st["chatbot"] in ("smart", "off"):
         replied = message.reply_to_message
@@ -275,6 +321,25 @@ async def handle_message(client, message: Message):
     if not await antispam.check(user_id):
         return
 
+    # image generation (fitur 7)
+    if is_private or st["chatbot"] in ("on",) or reason in ("named", "reply-to-bot"):
+        if MG.is_image_request(text):
+            handled = await MG.handle_image_request(message, text)
+            if handled:
+                mark_active(chat_id)
+                return
+
+    # youtube summarizer (fitur 8)
+    vid = MG.extract_yt_id(text)
+    if vid:
+        handled = await MG.summarize_youtube(message, text, vid)
+        if handled:
+            mark_active(chat_id)
+            return
+
+    # feedback/koreksi diri (fitur 6): tandai supaya AI minta klarifikasi
+    needs_clarify = SE.wants_correction(text)
+
     # batch merge spam (fitur 38)
     merged = await batcher.push(chat_id, user_id, text, media["desc"])
     if merged is False:
@@ -289,6 +354,7 @@ async def handle_message(client, message: Message):
                                     smart=(st["chatbot"] == "smart"))
 
     try:
+        ai_respond._needs_clarify = needs_clarify
         answer = await ai_respond(client, message, merged,
                                   media_b64=media["b64"],
                                   media_desc=media["desc"])
@@ -320,6 +386,23 @@ async def handle_message(client, message: Message):
         log.debug(f"ltm bump err: {e}")
 
     mark_active(chat_id)
+
+    # anti-repetisi (fitur 4): kalau mirip jawaban sebelumnya → minta variasi
+    try:
+        if SE.is_repetitive(chat_id, answer):
+            retry = await llm.chat([
+                {"role": "system", "content": system},
+                {"role": "user", "content": final_text or "(media)"},
+                {"role": "assistant", "content": answer},
+                {"role": "user", "content":
+                    "Jawabanmu di atas terlalu mirip dengan jawabanmu "
+                    "sebelumnya. Tulis ulang dengan kalimat & angle BERBEDA, "
+                    "tetap akurat."}])
+            if retry:
+                answer = retry
+    except Exception as e:
+        log.debug(f"anti-repeat err: {e}")
+    SE.remember_answer(chat_id, answer)
 
     try:
         if _voice_reply:

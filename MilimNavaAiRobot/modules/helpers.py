@@ -234,5 +234,8 @@ def strip_meta_prefix(text: str) -> str:
         out = new.lstrip()
     # sisanya di tengah kalimat pun dibuang
     out = _META_ANYWHERE.sub(" ", out)
+    # header proses internal yang bocor: "JAWABAN:", "DRAF:", "KOREKSI:", "VERSI FINAL:"
+    out = re.sub(r"^\s*(?:JAWABAN|DRAF|KOREKSI|VERSI FINAL|FINAL ANSWER)\s*:\s*\n?",
+                 "", out, flags=re.IGNORECASE)
     out = re.sub(r"[ \t]{2,}", " ", out)
     return out.strip() if not text.endswith("\n") else out

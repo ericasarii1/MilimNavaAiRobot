@@ -97,10 +97,14 @@ async def verify_answer(llm, question: str, answer: str,
                 "pertanyaan & konteks. Jawab HANYA salah satu:\n"
                 "OK — kalau tidak ada klaim yang mencurigakan/ngawur\n"
                 "FIX: <kalimat koreksi spesifik> — kalau ada klaim ngawur/"
-                "kontradiktif/karangan"},
+                "kontradiktif/karangan\n"
+                "PENTING: output HANYA 'OK' atau 'FIX: ...'. Label seperti "
+                "PERTANYAAN/KONTEKS/JAWABAN hanyalah penanda struktur internal "
+                "— JANGAN pernah ditulis ulang di output."},
             {"role": "user", "content":
+                f"[INTERNAL AUDIT — bukan untuk user]\n"
                 f"PERTANYAAN: {question[:400]}\n\nKONTEKS: {context[:800]}\n\n"
-                f"JAWABAN: {answer[:1200]}"}
+                f"DRAF: {answer[:1200]}"}
         ])
         v = (verdict or "").strip()
         if v.upper().startswith("OK"):
@@ -110,9 +114,12 @@ async def verify_answer(llm, question: str, answer: str,
                 {"role": "system", "content":
                     "Perbaiki jawaban berikut sesuai koreksi auditor. "
                     "Pertahankan gaya & format, ubah hanya bagian yang "
-                    "bermasalah. Jangan tambahkan penjelasan proses."},
+                    "bermasalah. Jangan tambahkan penjelasan proses. "
+                    "Output HANYA isi jawaban final — tanpa label, tanpa "
+                    "header seperti JAWABAN:/DRAF:/KOREKSI:."},
                 {"role": "user", "content":
-                    f"JAWABAN:\n{answer[:1200]}\n\nKOREKSI: {v[4:300]}"}
+                    f"DRAF:\n{answer[:1200]}\n\nCATATAN KOREKSI INTERNAL: "
+                    f"{v[4:300]}"}
             ])
             return fixed or answer
     except Exception as e:

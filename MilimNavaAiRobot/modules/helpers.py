@@ -180,7 +180,7 @@ class TypingLoop:
         try:
             while True:
                 try:
-                    await client.send_chat_action(chat_id, "typing")
+                    await client.send_chat_action(chat_id, enums.ChatAction.TYPING)
                 except Exception:
                     pass
                 await asyncio.sleep(4)

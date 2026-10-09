@@ -32,6 +32,8 @@ from MilimNavaAiRobot.modules import group_stats as GS
 from MilimNavaAiRobot.modules import anime as AN
 from MilimNavaAiRobot.modules import catchup as CU
 from MilimNavaAiRobot.modules import human_touch as HT
+from MilimNavaAiRobot.modules import lifedata as LD
+from MilimNavaAiRobot.modules import sticker_reply as SR
 
 log = logging.getLogger("milim.handlers")
 
@@ -95,6 +97,14 @@ async def ai_respond(client, message: Message, user_text: str,
                 system += anime_ctx
         except Exception as e:
             log.debug(f"anime err: {e}")
+
+        # lifedata: kurs/crypto/jadwal sholat real-time (kemampuan)
+        try:
+            ld = await LD.maybe_inject(user_text or "")
+            if ld:
+                system += ld
+        except Exception as e:
+            log.debug(f"lifedata err: {e}")
 
         # catch-up: pesan yang lewat saat user tidak aktif (kemampuan)
         try:
@@ -334,6 +344,13 @@ async def handle_message(client, message: Message):
         return
 
     chat, user = message.chat, message.from_user
+    # sticker reply: catat stiker yang terlihat; kadang bales pakai stiker
+    if message.sticker and message.sticker.file_id:
+        try:
+            SR.remember(chat_id, message.sticker.file_id)
+        except Exception:
+            pass
+
     # voice: transkrip disuntik oleh modules/voice.py
     voice_text = getattr(message, "_milim_voice_text", None)
     text = (voice_text or message.text or message.caption or "").strip()
@@ -379,6 +396,17 @@ async def handle_message(client, message: Message):
             return
 
     # reply ke pesan bot = pemicu respon (mode smart & off)
+    # sticker reply balik (kemampuan fun): kadang bales stiker dgn stiker
+    if not respond and message.sticker and st["speaking"] \
+            and st["chatbot"] in ("on", "smart") and not is_private:
+        try:
+            sid = SR.maybe_reply(chat_id)
+            if sid:
+                await message.reply_sticker(sid)
+                return
+        except Exception as e:
+            log.debug(f"sticker reply err: {e}")
+
     if not respond and st["speaking"] and st["chatbot"] in ("smart", "off"):
         replied = message.reply_to_message
         if replied and replied.from_user and replied.from_user.is_bot                 and replied.from_user.id == client.me.id:

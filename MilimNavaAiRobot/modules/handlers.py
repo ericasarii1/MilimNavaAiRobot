@@ -82,6 +82,19 @@ async def ai_respond(client, message: Message, user_text: str,
     if media_desc:
         final_text = f"{user_text}\n\n{media_desc}" if user_text else media_desc
 
+    # konteks pesan yang di-reply (fitur reply)
+    try:
+        replied = message.reply_to_message
+        if replied:
+            who = replied.from_user.first_name if replied.from_user else "seseorang"
+            rtxt = (replied.text or replied.caption or "").strip()
+            if rtxt:
+                final_text = (f"{final_text}\n\n"
+                              f"(USER SEDANG MEMBALAS pesan dari {who}: "
+                              f"\"{rtxt[:300]}\")")
+    except Exception:
+        pass
+
     # web search real-time untuk pertanyaan yang butuh info terkini
     if user_text:
         try:
@@ -240,6 +253,15 @@ async def handle_message(client, message: Message):
         await memory.add(chat_id, user_id, "user", entry)
 
     respond, reason = should_respond(st, text, user_id)
+
+    # reply ke pesan bot = pemicu respon (mode smart & off)
+    if not respond and st["speaking"] and st["chatbot"] in ("smart", "off"):
+        replied = message.reply_to_message
+        if replied and replied.from_user and replied.from_user.is_bot                 and replied.from_user.id == client.me.id:
+            respond, reason = True, "reply-to-bot"
+        elif replied and not replied.from_user and replied.text:
+            # pesan via-channel/service tanpa from_user dianggap bot
+            respond, reason = True, "reply-to-bot"
 
     # media & smart mode (fitur 39)
     if not respond and (media["b64"] or media["desc"]) \

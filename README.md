@@ -46,10 +46,10 @@ MilimNavaAiRobot/          (repo root)
     ├── __init__.py        # Config loader (.env/config.py/default) + client + singletons
     ├── __main__.py        # entry point — auto-load semua modul
     ├── sample_config.py   # template config (rename jadi config.py untuk pakai)
-    ├── database/
-    │   └── db.py          # MongoDB/Redis/PostgreSQL + fallback in-memory
     └── modules/
         ├── __init__.py    # auto-loader (ALL_MODULES)
+        ├── database/
+        │   └── db.py      # MongoDB/Redis/PostgreSQL + fallback in-memory
         ├── ai.py          # LLM multi-provider (sticky + fallback)
         ├── handlers.py    # semua handler (command, message, group event)
         ├── helpers.py     # waktu, antispam, batcher, thinker, should_respond

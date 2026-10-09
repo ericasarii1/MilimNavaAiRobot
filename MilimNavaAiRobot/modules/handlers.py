@@ -18,7 +18,7 @@ from MilimNavaAiRobot.modules import prompts as P
 from MilimNavaAiRobot.modules.ai import LLMError
 from MilimNavaAiRobot.modules.helpers import (should_respond, now_str,
                                               humanize_delta, AntiSpam,
-                                              Batcher, Thinker, TypingLoop)
+                                              Batcher, Thinker, TypingLoop, strip_meta_prefix)
 from MilimNavaAiRobot.modules.media import read_media
 from MilimNavaAiRobot.modules import web_search as WS
 from MilimNavaAiRobot.modules import long_term_memory as LTM
@@ -77,7 +77,7 @@ async def ai_respond(client, message: Message, user_text: str,
     # riwayat personal user (fitur 7, 22)
     for h in await memory.get(chat.id, user.id):
         age = humanize_delta(time.time() - h.get("ts", time.time()))
-        content = h["content"] if age == "baru saja" else f"({age}) {h['content']}"
+        content = h["content"] if age == "baru saja" else f"(info waktu: dikirim {age}) {h['content']}"
         msgs.append({"role": h["role"], "content": content})
 
     final_text = user_text
@@ -403,6 +403,9 @@ async def handle_message(client, message: Message):
     except Exception as e:
         log.debug(f"anti-repeat err: {e}")
     SE.remember_answer(chat_id, answer)
+
+    # bersihkan prefix metadata yang bocor (mis. "(1 jam yang lalu) ...")
+    answer = strip_meta_prefix(answer)
 
     try:
         if _voice_reply:

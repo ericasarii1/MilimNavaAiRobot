@@ -198,3 +198,27 @@ class TypingLoop:
             await client.send_chat_action(chat_id, enums.ChatAction.CANCEL)
         except Exception:
             pass
+
+# ── sanitizer: buang prefix metadata yang bocor dari riwayat ────────
+_META_PREFIX = re.compile(
+    r"^\s*(?:"
+    r"\(\s*(?:baru saja|\d+\s*(?:detik|menit|jam|hari|minggu|bulan|tahun)"
+    r"\s*yang lalu)\s*\)\s*[:\-]?\s*"
+    r"|\[[^\]\n]{0,40}?,\s*(?:baru saja|\d+\s*(?:detik|menit|jam|hari"
+    r"|minggu|bulan|tahun)\s*yang lalu)\]\s*:?\s*"
+    r"|\(\s*pesan dari [^)\n]{0,40}\)\s*[:\-]?\s*"
+    r")+", re.IGNORECASE)
+
+
+def strip_meta_prefix(text: str) -> str:
+    """Buang awalan metadata ([nama, waktu] / (5 menit yang lalu) /
+    (pesan dari X)) yang kadang disalin LLM ke jawaban."""
+    if not text:
+        return text
+    out = text
+    for _ in range(4):
+        new = _META_PREFIX.sub("", out, count=1)
+        if new == out:
+            break
+        out = new.lstrip()
+    return out

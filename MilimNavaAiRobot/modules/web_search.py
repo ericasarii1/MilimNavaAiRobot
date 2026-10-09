@@ -24,6 +24,7 @@ NEGATIVE = re.compile(r"\b(matematika|hitung|kode|code|cerita|puisi|terjemah)\b"
 CACHE = {}
 CACHE_TTL = 600
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
+UA_WIKI = ("MilimNavaBot/1.0 (https://t.me/MilimNavaRobot; contact: aleneric@nekosan.uk) aiohttp")
 
 
 def needs_search(text: str) -> bool:
@@ -100,7 +101,14 @@ async def _wiki(query: str, lang="id") -> str:
     import urllib.parse
     url = (f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/" +
            urllib.parse.quote(query.replace(" ", "_")))
-    body = await _get(url, timeout=10)
+    try:
+        async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=10)) as ses:
+            async with ses.get(url, headers={"User-Agent": UA_WIKI}) as resp:
+                body = await resp.text() if resp.status == 200 else None
+    except Exception as e:
+        log.debug(f"wiki err: {e}")
+        body = None
     if not body:
         return ""
     try:

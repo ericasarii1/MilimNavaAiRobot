@@ -23,6 +23,7 @@ from MilimNavaAiRobot.modules.media import read_media
 from MilimNavaAiRobot.modules import web_search as WS
 from MilimNavaAiRobot.modules import long_term_memory as LTM
 from MilimNavaAiRobot.modules import persona as PR
+from MilimNavaAiRobot.modules import smart_tools as ST
 
 log = logging.getLogger("milim.handlers")
 
@@ -82,11 +83,37 @@ async def ai_respond(client, message: Message, user_text: str,
             search_ctx = await WS.maybe_search_and_inject(user_text)
             if search_ctx:
                 system += search_ctx
-                msgs[0] = {"role": "system", "content": system}
         except Exception as e:
             log.debug(f"websearch inject err: {e}")
 
+    # link reader: baca isi halaman yang di-share
+    if user_text:
+        try:
+            link_ctx = await ST.maybe_read_links(user_text)
+            if link_ctx:
+                system += link_ctx
+        except Exception as e:
+            log.debug(f"link read err: {e}")
+
+    # kalkulator presisi
+    if user_text:
+        try:
+            calc = ST.try_calculate(user_text)
+            if calc:
+                system += ("\n\n" + calc + "\nGunakan angka ini apa adanya, "
+                           "jangan hitung ulang sendiri.")
+        except Exception as e:
+            log.debug(f"calc err: {e}")
+
+    msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
+
+    # deep think utk pertanyaan kompleks
+    try:
+        if user_text and ST.is_deep_question(user_text) and st.get("chatbot") != "off":
+            return await ST.deep_think_answer(llm, msgs)
+    except Exception as e:
+        log.debug(f"deep think err: {e}")
 
     return await llm.chat(msgs, image_b64=media_b64)
 

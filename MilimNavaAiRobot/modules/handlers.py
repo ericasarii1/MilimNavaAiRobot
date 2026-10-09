@@ -183,10 +183,22 @@ async def handle_message(client, message: Message):
         return
     if not message.from_user or message.from_user.is_bot:
         return
+    # voice/audio: diproses modules/voice.py (group=0) — lewati di sini
+    if (message.voice or message.audio) and not getattr(
+            message, "_milim_voice_text", None):
+        return
 
     chat, user = message.chat, message.from_user
-    text = (message.text or message.caption or "").strip()
+    # voice: transkrip disuntik oleh modules/voice.py
+    voice_text = getattr(message, "_milim_voice_text", None)
+    text = (voice_text or message.text or message.caption or "").strip()
     chat_id, user_id = chat.id, user.id
+    # flag balasan suara
+    _voice_reply = False
+    if voice_text:
+        vr = await db.get(f"voice_reply:{chat_id}")
+        _voice_reply = vr == "1"
+        await db.delete(f"voice_reply:{chat_id}")
     st = await state.get(chat_id)
     is_private = chat.type == enums.ChatType.PRIVATE
 
@@ -266,7 +278,13 @@ async def handle_message(client, message: Message):
     mark_active(chat_id)
 
     try:
-        await message.reply_text(answer, quote=is_private or bool(message.reply_to_message))
+        if _voice_reply:
+            from MilimNavaAiRobot.modules.voice import reply_voice
+            await reply_voice(message, answer,
+                              formal=(st["conv"] == "formal"),
+                              quote=is_private or bool(message.reply_to_message))
+        else:
+            await message.reply_text(answer, quote=is_private or bool(message.reply_to_message))
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

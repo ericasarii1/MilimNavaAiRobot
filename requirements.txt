@@ -6,3 +6,4 @@ psycopg2-binary
 aiohttp
 pillow
 beautifulsoup4
+edge-tts

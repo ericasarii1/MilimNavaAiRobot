@@ -141,6 +141,7 @@ class Config:
     KEY_COOLDOWN_ERR = _cfg_int("KEY_COOLDOWN_ERR", 60)
     PROVIDER_COOLDOWN = _cfg_int("PROVIDER_COOLDOWN", 300)
     REQUEST_TIMEOUT = _cfg_int("REQUEST_TIMEOUT", 120)
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
     LOG_LEVEL = _cfg("LOG_LEVEL", "INFO")
 
 

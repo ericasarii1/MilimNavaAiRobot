@@ -120,12 +120,6 @@ def clear_done_text(conv: str) -> str:
     return "Wus, ingatan gue udah kehapus semua! Kita mulai fresh lagi ya ✨"
 
 
-def revive_text(conv: str) -> str:
-    if conv == "formal":
-        return "Selamat datang kembali. Saya tetap siap membantu Anda."
-    return "Halo, balik lagi! Ketinggalan apa nih? 👀"
-
-
 def error_text(conv: str) -> str:
     if conv == "formal":
         return ("Maaf, terjadi gangguan pada layanan. "

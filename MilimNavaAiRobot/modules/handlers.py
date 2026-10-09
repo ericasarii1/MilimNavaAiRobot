@@ -36,10 +36,6 @@ def mark_active(chat_id: int):
     _last_seen[chat_id] = time.time()
 
 
-def was_idle(chat_id: int, threshold_min: int = 30) -> bool:
-    return (time.time() - _last_seen.get(chat_id, 0)) > threshold_min * 60
-
-
 # ══════════════════════════════════════════════════════════════════
 # AI CORE
 # ══════════════════════════════════════════════════════════════════
@@ -228,12 +224,6 @@ async def handle_message(client, message: Message):
     # batch merge spam (fitur 38)
     merged = await batcher.push(chat_id, user_id, text, media["desc"])
     if merged is False:
-        return
-
-    # anti spam revive (fitur 18)
-    if was_idle(chat_id) and not is_private:
-        await message.reply_text(P.revive_text(st["conv"]), quote=True)
-        mark_active(chat_id)
         return
 
     # typing kontinu — langsung tampil begitu bot mulai memproses

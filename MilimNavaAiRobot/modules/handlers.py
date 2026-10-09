@@ -444,13 +444,14 @@ async def handle_message(client, message: Message):
     answer = strip_meta_prefix(answer)
 
     try:
+        # SELALU reply (quote) ke pesan user, di grup maupun DM
         if _voice_reply:
             from MilimNavaAiRobot.modules.voice import reply_voice
             await reply_voice(message, answer,
                               formal=(st["conv"] == "formal"),
-                              quote=is_private or bool(message.reply_to_message))
+                              quote=True)
         else:
-            await message.reply_text(answer, quote=is_private or bool(message.reply_to_message))
+            await message.reply_text(answer, quote=True)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

@@ -49,7 +49,10 @@ async def ai_respond(client, message: Message, user_text: str,
 
     system = (P.PROMPTS[conv].format(owner_id=C.OWNER_ID) +
               f"\n\nINFORMASI WAKTU SAAT INI: {now_str()}." +
-              f"\nUSER ID Telegram penanya: {user.id}. Nama: {user.first_name}.")
+              f"\nUSER ID Telegram penanya: {user.id}. Nama: {user.first_name}." +
+              "\n\nFORMAT OUTPUT — WAJIB:\n"
+              "- Riwayat chat di context diberi tanda seperti (pesan dari X, 5 menit lalu) — itu HANYA metadata utkmu, JANGAN PERNAH menyalin/mengulang format itu di jawaban.\n"
+              "- Jawaban langsung isi saja, tanpa prefiks nama/waktu/penanda apa pun.")
 
     # persona tambahan (dari owner)
     system += PR.persona_prompt(await PR.get_persona())
@@ -60,17 +63,19 @@ async def ai_respond(client, message: Message, user_text: str,
     msgs = [{"role": "system", "content": system}]
 
     # thread grup utuh (fitur 33)
+    # PENTING: tag [nama, waktu] hanyalah metadata riwayat — WAJIB
+    # diinstruksikan agar tidak pernah disalin ke jawaban.
     if chat.type != enums.ChatType.PRIVATE:
         for g in await memory.get_group(chat.id):
             who = g.get("speaker", "?")
             ts = humanize_delta(time.time() - g.get("ts", time.time()))
             msgs.append({"role": g.get("role", "user"),
-                         "content": f"[{who}, {ts}]: {g['content']}"})
+                         "content": f"(pesan dari {who}, {ts}) {g['content']}"})
 
     # riwayat personal user (fitur 7, 22)
     for h in await memory.get(chat.id, user.id):
         age = humanize_delta(time.time() - h.get("ts", time.time()))
-        content = h["content"] if age == "baru saja" else f"{h['content']} ({age})"
+        content = h["content"] if age == "baru saja" else f"({age}) {h['content']}"
         msgs.append({"role": h["role"], "content": content})
 
     final_text = user_text

@@ -60,6 +60,7 @@ def mark_active(chat_id: int):
 async def ai_respond(client, message: Message, user_text: str,
                      media_b64=None, media_desc="") -> str:
     chat, user = message.chat, message.from_user
+    ai_respond._reasoning = None
     st = await state.get(chat.id)
     conv = st["conv"]
 
@@ -290,7 +291,6 @@ async def ai_respond(client, message: Message, user_text: str,
 
     # agentic loop: AI pilih tool sendiri (search/hitung/baca) utk
     # pertanyaan yang butuh eksplorasi; sisanya jawaban langsung
-    _reasoning_pending = None
     use_agent = bool(user_text) and len(user_text) > 25 and \
         st.get("chatbot") != "off" and not media_b64
     # reasoning 2-pass (mikir dulu ala model reasoning) — untuk pertanyaan
@@ -301,11 +301,11 @@ async def ai_respond(client, message: Message, user_text: str,
     if use_reason:
         try:
             answer, _reasoning = await RS.think(llm, user_text, system, msgs)
+            ai_respond._reasoning = _reasoning
         except Exception as e:
             log.debug(f"reasoning err: {e}")
             answer, _reasoning = None, None
-        if answer and _reasoning:
-            _reasoning_pending = _reasoning
+            ai_respond._reasoning = None
         if not answer:
             answer = await llm.chat(msgs, image_b64=media_b64)
     elif use_agent:
@@ -607,9 +607,10 @@ async def handle_message(client, message: Message):
         except Exception as e:
             log.debug(f"normalize err: {e}")
         # tampilkan reasoning sbg blok collapsible (ala model reasoning)
-        if _reasoning_pending:
+        _rp = getattr(ai_respond, "_reasoning", None)
+        if _rp:
             try:
-                answer = RS.format_answer(answer, _reasoning_pending)
+                answer = RS.format_answer(answer, _rp)
             except Exception as e:
                 log.debug(f"reason fmt err: {e}")
     except LLMError:

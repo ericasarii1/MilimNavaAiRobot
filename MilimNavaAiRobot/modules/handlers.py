@@ -211,13 +211,35 @@ async def ai_respond(client, message: Message, user_text: str,
         replied = message.reply_to_message
         if replied:
             who = replied.from_user.first_name if replied.from_user else "seseorang"
+            _rhandle = ""
+            if replied.from_user and replied.from_user.username:
+                _rhandle = f" (@{replied.from_user.username}, ID {replied.from_user.id})"
             rtxt = (replied.text or replied.caption or "").strip()
             if rtxt:
                 final_text = (f"{final_text}\n\n"
-                              f"(USER SEDANG MEMBALAS pesan dari {who}: "
+                              f"(USER SEDANG MEMBALAS pesan dari {who}{_rhandle}: "
                               f"\"{rtxt[:300]}\")")
     except Exception:
         pass
+
+    # IDENTITAS ASLI user yang di-mention: resolve via API supaya LLM tidak
+    # mengarang username/ID. Inject nama+username+ID sebenarnya.
+    try:
+        _idents = []
+        _seen = set()
+        _ents = (message.entities or []) + (message.caption_entities or [])
+        for _e in _ents:
+            _u = getattr(_e, "user", None)
+            if _u and _u.id not in _seen:
+                _seen.add(_u.id)
+                _h = f"@{_u.username}" if _u.username else "(tanpa username)"
+                _idents.append(f"{_u.first_name} {_h} ID={_u.id}")
+        if _idents:
+            final_text = (f"{final_text}\n\n(USER MENTION user berikut — "
+                          f"ini identitas ASLI dari Telegram, pakai PERSIS ini "
+                          f"kalau mau men-tag: " + "; ".join(_idents) + ")")
+    except Exception as e:
+        log.debug(f"mention resolve err: {e}")
 
     # web search real-time untuk pertanyaan yang butuh info terkini
     if user_text:

@@ -140,6 +140,43 @@ async def handle_voice_mode(client, message: Message):
         await message.reply_text("Oke, balasan suara dinyalakan kembali 🔊")
 
 
+# ── teks gagal STT: variasi acak, bukan template tunggal ──────────
+import random as _random
+
+_FAIL_SANTAI = [
+    "hmm suaranya gak kebaca nih 😅 ulangi lagi dong",
+    "aduh kepotong kayanya, coba rekam ulang 👂",
+    "gak jelas nangkepnya wkwk, sekali lagi ya",
+    "bentar, suara lu ilang di jalan… coba kirim ulang 😅",
+    "gue gak denger apa-apa nih, rekam ulang dong 🎙️",
+]
+_FAIL_FORMAL = [
+    "Maaf, pesan suara Anda tidak berhasil saya dengar. Mohon ulangi.",
+    "Sepertinya rekaman terpotong. Silakan kirim ulang, ya.",
+    "Saya belum dapat menangkap isi suaranya. Mohon direkam kembali.",
+    "Maaf, audio belum terbaca dengan jelas. Coba kirim sekali lagi.",
+]
+_NOSTT_SANTAI = [
+    "wkwk gue belum bisa denger suara nih 😅 tapi gue bisa ngomong loh!",
+    "suara lu masuk tapi telinga gue lagi error 🥲 teks aja dulu ya",
+    "gue cuma bisa ngomong, belum bisa dengar 😔 teks dong",
+]
+_NOSTT_FORMAL = [
+    "Maaf, pengenalan suara sedang tidak tersedia. Silakan kirim pesan teks.",
+    "Untuk saat ini saya hanya dapat berbicara, belum dapat mendengar. "
+    "Mohon gunakan pesan teks.",
+]
+
+
+def _stt_fail_text(conv: str, nostt: bool = False) -> tuple:
+    formal = conv == "formal"
+    if nostt:
+        pool = _NOSTT_FORMAL if formal else _NOSTT_SANTAI
+    else:
+        pool = _FAIL_FORMAL if formal else _FAIL_SANTAI
+    return _random.choice(pool), formal
+
+
 # ─────────────────── handler utama voice ───────────────────
 @app.on_message(filters.voice | filters.audio, group=0)
 async def handle_voice(client, message: Message):
@@ -163,12 +200,7 @@ async def handle_voice(client, message: Message):
         return
 
     if not GROQ_API_KEY and not C.PROVIDERS:
-        formal = st["conv"] == "formal"
-        txt = ("Maaf, transkripsi suara tidak tersedia saat ini. "
-               "Sementara aku hanya bisa berbicara, belum mendengar.")
-        if not formal:
-            txt = ("Waduh, gue belum bisa denger suara nih 😅 tapi gue "
-                   "bisa ngomong loh!")
+        txt, formal = _stt_fail_text(st["conv"], nostt=True)
         await reply_voice(message, txt, formal)
         return
 
@@ -183,10 +215,7 @@ async def handle_voice(client, message: Message):
         log.debug(f"stt fail: {e}")
 
     if not text:
-        await message.reply_text(
-            "Maaf, aku gagal mendengarkan pesan suaramu. Coba ulangi?"
-            if st["conv"] == "formal" else
-            "Hmm, suaramu kepotong kayanya 😅 coba rekam ulang dong!")
+        await reply_voice(message, *_stt_fail_text(st["conv"]))
         return
 
     # simpan flag: balasan harus berupa voice

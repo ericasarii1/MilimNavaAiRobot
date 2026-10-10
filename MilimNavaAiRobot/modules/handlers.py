@@ -46,6 +46,11 @@ from MilimNavaAiRobot.modules import timesense as TS
 from MilimNavaAiRobot.modules import recall as RC
 from MilimNavaAiRobot.modules import continuity as CT
 from MilimNavaAiRobot.modules import curiosity as CQ
+from MilimNavaAiRobot.modules import energy as EN
+from MilimNavaAiRobot.modules import nuance as NC
+from MilimNavaAiRobot.modules import debate as DB3
+from MilimNavaAiRobot.modules import vocab as VC
+from MilimNavaAiRobot.modules import thread as TD
 from MilimNavaAiRobot.modules import deep_brain as DB2
 from MilimNavaAiRobot.modules import media_transcript as MT2
 
@@ -375,6 +380,37 @@ async def ai_respond(client, message: Message, user_text: str,
             system += CQ.CURIOSITY_INSTRUCTION
     except Exception as e:
         log.debug(f"curiosity err: {e}")
+    # energi/nuansa/debat/vokab/thread — instruksi adaptif ala assistant
+    try:
+        e_ctx = EN.instruction(user_text or "")
+        if e_ctx:
+            system += e_ctx
+    except Exception as e:
+        log.debug(f"energy err: {e}")
+    try:
+        n_ctx = NC.instruction(user_text or "")
+        if n_ctx:
+            system += n_ctx
+    except Exception as e:
+        log.debug(f"nuance err: {e}")
+    try:
+        d_ctx = DB3.instruction(user_text or "")
+        if d_ctx:
+            system += d_ctx
+    except Exception as e:
+        log.debug(f"debate err: {e}")
+    try:
+        v_ctx = await VC.instruction(chat.id)
+        if v_ctx:
+            system += v_ctx
+    except Exception as e:
+        log.debug(f"vocab err: {e}")
+    try:
+        t_ctx = await TD.instruction(chat.id, user_text or "")
+        if t_ctx:
+            system += t_ctx
+    except Exception as e:
+        log.debug(f"thread err: {e}")
 
     msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
@@ -770,6 +806,16 @@ async def handle_message(client, message: Message):
             await CT.store_opinion(chat_id, RS.strip_block(answer))
         except Exception as e:
             log.debug(f"opinion store err: {e}")
+        # vocab: lacak frasa bot supaya tidak kliché berulang
+        try:
+            await VC.track(chat_id, RS.strip_block(answer))
+        except Exception as e:
+            log.debug(f"vocab track err: {e}")
+        # thread: update jejak topik & pertanyaan terbuka
+        try:
+            await TD.update(chat_id, merged, True)
+        except Exception as e:
+            log.debug(f"thread update err: {e}")
         # tampilkan reasoning sbg blok markdown (☁️ Reasoning + backtick)
         _plain = answer                     # versi tanpa blok (utk memori/konteks)
         _rp = getattr(ai_respond, "_reasoning", None)

@@ -52,6 +52,7 @@ from MilimNavaAiRobot.modules import debate as DB3
 from MilimNavaAiRobot.modules import vocab as VC
 from MilimNavaAiRobot.modules import thread as TD
 from MilimNavaAiRobot.modules import whereami as WA
+from MilimNavaAiRobot.modules import cross_context as CCX
 from MilimNavaAiRobot.modules import deep_brain as DB2
 from MilimNavaAiRobot.modules import media_transcript as MT2
 
@@ -421,6 +422,20 @@ async def ai_respond(client, message: Message, user_text: str,
     except Exception as e:
         log.debug(f"thread err: {e}")
 
+    # konteks lintas-chat (ala kode lama): DM<->grup saling tersambung
+    try:
+        if chat.type == enums.ChatType.PRIVATE:
+            _ug = await db.get(f"user_groups:{user.id}")
+            import json as _cj
+            _ugarr = _cj.loads(_ug) if _ug else []
+            ccx = await CCX.group_context(_ugarr)
+        else:
+            ccx = await CCX.dm_context(chat.id, user.id)
+        if ccx:
+            system += ccx
+    except Exception as e:
+        log.debug(f"crossctx err: {e}")
+
     # kesadaran lokasi SELALU (grup & DM) — anti "gue gak bisa liat grup"
     try:
         _wa = await WA.always_inject(chat.id)
@@ -545,6 +560,7 @@ async def handle_commands(client, message: Message):
         cmd = raw.lower()
     else:
         return
+    log.info(f"[cmd] chat={message.chat.type} raw={raw[:60]!r} cmd={cmd!r}")
     chat_id = message.chat.id
     st = await state.get(chat_id)
 
@@ -572,6 +588,7 @@ async def handle_commands(client, message: Message):
     elif cmd == "status":
         await message.reply_text(P.status_text(st), quote=True)
     elif cmd in ("clear database", "clear db", "hapus ingatan", "lupa semua"):
+        log.info(f"[cmd] clear db uid={message.from_user.id} owner={C.OWNER_ID}")
         if message.from_user.id == C.OWNER_ID:
             await db.clear_all()
             st = await state.get(chat_id)

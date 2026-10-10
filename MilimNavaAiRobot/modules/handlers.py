@@ -43,6 +43,9 @@ from MilimNavaAiRobot.modules import codex as CX
 from MilimNavaAiRobot.modules import factlab as FL
 from MilimNavaAiRobot.modules import mathmind as MM
 from MilimNavaAiRobot.modules import timesense as TS
+from MilimNavaAiRobot.modules import recall as RC
+from MilimNavaAiRobot.modules import continuity as CT
+from MilimNavaAiRobot.modules import curiosity as CQ
 from MilimNavaAiRobot.modules import deep_brain as DB2
 from MilimNavaAiRobot.modules import media_transcript as MT2
 
@@ -159,6 +162,13 @@ async def ai_respond(client, message: Message, user_text: str,
                     system += mm_ctx
             except Exception as e:
                 log.debug(f"mathmind err: {e}")
+            try:
+                rc_ctx = await RC.maybe_inject(chat.id, user.id, user_text or "")
+                if rc_ctx:
+                    system += rc_ctx
+                await RC.remember_from(chat.id, user.id, user_text or "")
+            except Exception as e:
+                log.debug(f"recall err: {e}")
             try:
                 ts_ctx = TS.maybe_inject(user_text or "")
                 if ts_ctx:
@@ -336,6 +346,14 @@ async def ai_respond(client, message: Message, user_text: str,
         system += LG.language_addon(LG.detect_language(user_text))
 
 
+    # konsistensi pendapat (continuity)
+    try:
+        ct_ctx = await CT.check_consistency(chat.id, user_text or "")
+        if ct_ctx:
+            system += ct_ctx
+    except Exception as e:
+        log.debug(f"continuity err: {e}")
+
     # pertanyaan jebakan / premis salah (factlab)
     try:
         if FL.is_trap_question(user_text or ""):
@@ -350,6 +368,13 @@ async def ai_respond(client, message: Message, user_text: str,
     # manifest tools utk agentic mode (agar AI tahu bisa pakai JSON tool)
     if user_text and len(user_text) > 25 and not media_b64:
         system += AG.TOOL_MANIFEST
+
+    # curiosity: kadang disuruh nanya balik natural
+    try:
+        if CQ.should_ask(chat.id, user_text or "", chat.type != enums.ChatType.PRIVATE):
+            system += CQ.CURIOSITY_INSTRUCTION
+    except Exception as e:
+        log.debug(f"curiosity err: {e}")
 
     msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
@@ -740,6 +765,11 @@ async def handle_message(client, message: Message):
             answer = await FL.verify_numbers(llm, merged, answer)
         except Exception as e:
             log.debug(f"factlab verify err: {e}")
+        # continuity: catat opini/pendapat kuat di jawaban
+        try:
+            await CT.store_opinion(chat_id, RS.strip_block(answer))
+        except Exception as e:
+            log.debug(f"opinion store err: {e}")
         # tampilkan reasoning sbg blok markdown (☁️ Reasoning + backtick)
         _plain = answer                     # versi tanpa blok (utk memori/konteks)
         _rp = getattr(ai_respond, "_reasoning", None)

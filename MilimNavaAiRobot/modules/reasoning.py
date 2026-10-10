@@ -137,7 +137,15 @@ _META_LINE = re.compile(
     r"\b[^\n]*[:\u2014-].*$", re.IGNORECASE | re.MULTILINE)
 
 
+_JSON_TOOL_RE = re.compile(
+    r"^\s*(?:```(?:json)?\s*)?\{[^{}]*\"(?:tool|query|action|name)\"[^{}]*\}"
+    r"\s*(?:```)?\s*$", re.MULTILINE | re.IGNORECASE)
+
+
 def clean_reasoning(r: str) -> str:
+    # buang baris tool-call JSON yang bocor dari kebiasaan agentic (mis.
+    # {"tool":"web_search","query":"..."}) — itu bukan scratchpad
+    r = _JSON_TOOL_RE.sub("", r)
     return _META_LINE.sub("", r).strip(" \n\t-*_")
 
 

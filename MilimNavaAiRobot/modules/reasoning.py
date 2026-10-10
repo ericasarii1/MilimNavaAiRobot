@@ -148,4 +148,4 @@ def format_answer(answer: str, reasoning: str) -> str:
     r = r.replace("```", "")
     # TEKS INGGRIS POLOS di dalam blok kode (tombol Salin Kode), tanpa emoji/unicode
     r = _strip_nonascii(r)
-    return f"Reasoning:\n```\n{r}\n```\n\n{answer}"
+    return f"**💭 Reasoning:**\n```\n{r}\n```\n\n{answer}"

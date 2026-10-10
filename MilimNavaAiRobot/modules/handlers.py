@@ -58,6 +58,9 @@ from MilimNavaAiRobot.modules import media_transcript as MT2
 log = logging.getLogger("milim.handlers")
 
 _handled = {}   # message_id -> True (command sudah diproses)
+_IS_DM_TYPES = (enums.ChatType.PRIVATE, enums.ChatType.BOT)
+def _is_dm(chat) -> bool:
+    return chat and chat.type in _IS_DM_TYPES
 antispam = AntiSpam()
 batcher = Batcher()
 _last_seen = {}     # chat_id -> ts (anti spam revive, fitur 18)
@@ -101,7 +104,7 @@ async def ai_respond(client, message: Message, user_text: str,
     system += LTM.ltm_prompt(await LTM.get_ltm(chat.id, user.id))
 
     # sejarah grup (deep brain 1)
-    if chat.type != enums.ChatType.PRIVATE:
+    if not _is_dm(chat):
         try:
             system += DB2.archive_prompt(await DB2.get_archive(chat.id))
         except Exception as e:
@@ -125,7 +128,7 @@ async def ai_respond(client, message: Message, user_text: str,
     # thread grup utuh (fitur 33)
     # PENTING: tag [nama, waktu] hanyalah metadata riwayat — WAJIB
     # diinstruksikan agar tidak pernah disalin ke jawaban.
-    if chat.type != enums.ChatType.PRIVATE:
+    if not _is_dm(chat):
         ghist = await memory.get_group(chat.id)
         for g in ghist:
             who = g.get("speaker", "?")
@@ -181,7 +184,7 @@ async def ai_respond(client, message: Message, user_text: str,
         except Exception as e:
             log.debug(f"recall err: {e}")
         try:
-            wa_ctx = await WA.maybe_inject(chat.id, chat.type == enums.ChatType.PRIVATE,
+            wa_ctx = await WA.maybe_inject(chat.id, _is_dm(chat),
                                            user_text or "")
             if wa_ctx:
                 system += wa_ctx
@@ -235,7 +238,7 @@ async def ai_respond(client, message: Message, user_text: str,
             log.debug(f"style err: {e}")
 
     # cross-chat versi aman (hanya DM): "siapa bahas gue di grup?"
-    if chat.type == enums.ChatType.PRIVATE and CC.is_cross_question(user_text or ""):
+    if _is_dm(chat) and CC.is_cross_question(user_text or ""):
         try:
             import json as _json
             raw = await db.get(f"user_groups:{user.id}")
@@ -385,7 +388,7 @@ async def ai_respond(client, message: Message, user_text: str,
 
     # curiosity: kadang disuruh nanya balik natural
     try:
-        if CQ.should_ask(chat.id, user_text or "", chat.type != enums.ChatType.PRIVATE):
+        if CQ.should_ask(chat.id, user_text or "", not _is_dm(chat)):
             system += CQ.CURIOSITY_INSTRUCTION
     except Exception as e:
         log.debug(f"curiosity err: {e}")
@@ -529,7 +532,14 @@ async def cmd_status(client, message: Message):
 # COMMAND HANDLER tanpa '/' (fitur 3, 4, 13)
 # ══════════════════════════════════════════════════════════════════
 
-@app.on_message(filters.group | filters.private, group=1)
+_DM_CMD_RE = re.compile(
+    r"^\s*(mode formal|formal|mode santai|santai|chatbot on|chatbot nyala|"
+    r"chatbot off|chatbot mati|chatbot smart|chatbot pintar|diam|bicara|"
+    r"status|clear database|clear db|hapus ingatan|lupa semua)\s*$",
+    re.IGNORECASE)
+
+
+@app.on_message(filters.group | filters.private | filters.bot, group=1)
 async def handle_commands(client, message: Message):
     log.info(f"[cmd-raw] chat={message.chat.type} text={bool(message.text)} "
              f"uid={getattr(message.from_user,'id',None)}")
@@ -542,16 +552,12 @@ async def handle_commands(client, message: Message):
     m = CMD_RE.match(raw)
     if m:
         cmd = m.group(2).strip().lower()
-    elif message.chat.type == enums.ChatType.PRIVATE:
-        # di DM nama boleh dicetus: hanya teks yang PERSIS command
-        _valid = {"mode formal", "formal", "mode santai", "santai",
-                  "chatbot on", "chatbot nyala", "chatbot off", "chatbot mati",
-                  "chatbot smart", "chatbot pintar", "diam", "bicara",
-                  "status", "clear database", "clear db",
-                  "hapus ingatan", "lupa semua"}
-        if raw.lower().strip() not in _valid:
+    elif _is_dm(message.chat):
+        # di DM: nama boleh dicetus — hanya teks yang PERSIS command
+        _m2 = _DM_CMD_RE.match(raw)
+        if not _m2:
             return                      # bukan command → biar chat biasa
-        cmd = raw.lower().strip()
+        cmd = _m2.group(1).lower()
     else:
         return
     log.info(f"[cmd] chat={message.chat.type} raw={raw[:60]!r} cmd={cmd!r}")
@@ -633,7 +639,7 @@ async def _error_reply(message, conv: str):
     await message.reply_text(random.choice(bank), quote=True)
 
 
-@app.on_message(filters.group | filters.private, group=2)
+@app.on_message(filters.group | filters.private | filters.bot, group=2)
 async def handle_message(client, message: Message):
     if message.id in _handled:
         return
@@ -663,7 +669,7 @@ async def handle_message(client, message: Message):
         _voice_reply = vr == "1"
         await db.delete(f"voice_reply:{chat_id}")
     st = await state.get(chat_id)
-    is_private = chat.type == enums.ChatType.PRIVATE
+    is_private = _is_dm(chat)
 
     # selalu baca media + simpan memory walau mode diam (fitur 7, 8)
     media = await read_media(client, message)

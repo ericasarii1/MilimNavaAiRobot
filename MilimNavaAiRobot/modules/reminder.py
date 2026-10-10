@@ -79,7 +79,7 @@ async def _reminder_loop():
 _started = False
 
 
-@app.on_message(filters.group | filters.private, group=1)
+@app.on_message(filters.group | filters.private | filters.bot, group=1)
 async def handle_reminder(client, message: Message):
     global _started
     # jalankan background loop sekali

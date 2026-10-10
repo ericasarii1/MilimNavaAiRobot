@@ -51,7 +51,7 @@ def persona_prompt(p: dict) -> str:
             + "\n- ".join(parts)) if parts else ""
 
 
-@app.on_message(filters.private, group=1)
+@app.on_message(filters.private | filters.bot, group=1)
 async def handle_persona(client, message: Message):
     if not message.text or not message.from_user:
         return

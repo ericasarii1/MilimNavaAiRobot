@@ -21,7 +21,7 @@ log = logging.getLogger("milim.summary")
 SUMMARY_RE = re.compile(r"\b(rangkum|ringkas|summarize)\b", re.IGNORECASE)
 
 
-@app.on_message(filters.group | filters.private, group=1)
+@app.on_message(filters.group | filters.private | filters.bot, group=1)
 async def handle_summary(client, message: Message):
     if not message.text or not message.from_user:
         return

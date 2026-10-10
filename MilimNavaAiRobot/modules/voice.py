@@ -123,7 +123,7 @@ MODE_RE_TEXT = r"\b(teks saja|text only|jangan suara)\b"
 MODE_RE_AUTO = r"\b(mode suara|balas suara|voice mode)\b"
 
 
-@app.on_message(filters.private, group=1)
+@app.on_message(filters.private | filters.bot, group=1)
 async def handle_voice_mode(client, message: Message):
     if not message.text or not message.from_user:
         return

@@ -38,7 +38,7 @@ async def _set(user_id, notes):
     await db.set(_key(user_id), json.dumps(notes))
 
 
-@app.on_message(filters.group | filters.private, group=1)
+@app.on_message(filters.group | filters.private | filters.bot, group=1)
 async def handle_notes(client, message: Message):
     if not message.text or not message.from_user:
         return

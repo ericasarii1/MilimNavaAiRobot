@@ -39,6 +39,10 @@ from MilimNavaAiRobot.modules import sticker_reply as SR
 from MilimNavaAiRobot.modules import cross_chat as CC
 from MilimNavaAiRobot.modules import brainbox as BB
 from MilimNavaAiRobot.modules import reasoning as RS
+from MilimNavaAiRobot.modules import codex as CX
+from MilimNavaAiRobot.modules import factlab as FL
+from MilimNavaAiRobot.modules import mathmind as MM
+from MilimNavaAiRobot.modules import timesense as TS
 from MilimNavaAiRobot.modules import deep_brain as DB2
 from MilimNavaAiRobot.modules import media_transcript as MT2
 
@@ -130,6 +134,44 @@ async def ai_respond(client, message: Message, user_text: str,
         # anime/manga lookup: data AniList utk topik anime (kemampuan)
         try:
             anime_ctx = await AN.maybe_inject(user_text or "")
+            # kemampuan baru: kode/error, matematika/unit, waktu relatif
+            try:
+                _rep_txt = (message.reply_to_message.text or
+                            message.reply_to_message.caption or ""
+                            ) if message.reply_to_message else ""
+            except Exception:
+                _rep_txt = ""
+            try:
+                cx_ctx = CX.maybe_inject(user_text or "", _rep_txt)
+                if cx_ctx:
+                    system += cx_ctx
+                    # run python kalau diminta
+                    _code = CX.extract_code(_rep_txt or user_text or "")
+                    if CX.wants_run(user_text or "", _code):
+                        _res = await CX.run_python(_code)
+                        system += (f"\n\nHASIL EKSEKUSI KODE (nyata):\n"
+                                   f"```\n{_res}\n```")
+            except Exception as e:
+                log.debug(f"codex err: {e}")
+            try:
+                mm_ctx = MM.maybe_inject(user_text or "")
+                if mm_ctx:
+                    system += mm_ctx
+            except Exception as e:
+                log.debug(f"mathmind err: {e}")
+            try:
+                ts_ctx = TS.maybe_inject(user_text or "")
+                if ts_ctx:
+                    system += ts_ctx
+                if TS.is_reminder_intent(user_text or ""):
+                    _dt = TS.parse_relative(user_text or "")
+                    if _dt:
+                        system += (f"\n\nINTENT REMINDER: user minta "
+                                   f"diingatkan. Target waktu absolut: "
+                                   f"{_dt[0].strftime('%Y-%m-%d %H:%M')}. "
+                                   f"Konfirmasi waktu itu di jawabanmu.")
+            except Exception as e:
+                log.debug(f"timesense err: {e}")
             if anime_ctx:
                 system += anime_ctx
         except Exception as e:
@@ -293,6 +335,13 @@ async def ai_respond(client, message: Message, user_text: str,
     if user_text:
         system += LG.language_addon(LG.detect_language(user_text))
 
+
+    # pertanyaan jebakan / premis salah (factlab)
+    try:
+        if FL.is_trap_question(user_text or ""):
+            system += FL.TRAP_INSTRUCTION
+    except Exception as e:
+        log.debug(f"factlab trap err: {e}")
 
     # feedback/koreksi diri (fitur 6)
     if getattr(ai_respond, "_needs_clarify", False):
@@ -686,6 +735,11 @@ async def handle_message(client, message: Message):
                 answer, formal=(st["conv"] == "formal"))
         except Exception as e:
             log.debug(f"normalize err: {e}")
+        # factlab: sanity-check angka ekstrem di jawaban
+        try:
+            answer = await FL.verify_numbers(llm, merged, answer)
+        except Exception as e:
+            log.debug(f"factlab verify err: {e}")
         # tampilkan reasoning sbg blok markdown (☁️ Reasoning + backtick)
         _plain = answer                     # versi tanpa blok (utk memori/konteks)
         _rp = getattr(ai_respond, "_reasoning", None)

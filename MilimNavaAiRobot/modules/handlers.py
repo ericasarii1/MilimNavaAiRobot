@@ -531,6 +531,8 @@ async def cmd_status(client, message: Message):
 
 @app.on_message(filters.group | filters.private, group=1)
 async def handle_commands(client, message: Message):
+    log.info(f"[cmd-raw] chat={message.chat.type} text={bool(message.text)} "
+             f"uid={getattr(message.from_user,'id',None)}")
     if not message.text and not message.caption:
         return
     if message.from_user and message.from_user.is_bot:
@@ -541,8 +543,15 @@ async def handle_commands(client, message: Message):
     if m:
         cmd = m.group(2).strip().lower()
     elif message.chat.type == enums.ChatType.PRIVATE:
-        # di DM nama boleh dicetus: "clear database" langsung diterima
-        cmd = raw.lower()
+        # di DM nama boleh dicetus: hanya teks yang PERSIS command
+        _valid = {"mode formal", "formal", "mode santai", "santai",
+                  "chatbot on", "chatbot nyala", "chatbot off", "chatbot mati",
+                  "chatbot smart", "chatbot pintar", "diam", "bicara",
+                  "status", "clear database", "clear db",
+                  "hapus ingatan", "lupa semua"}
+        if raw.lower().strip() not in _valid:
+            return                      # bukan command → biar chat biasa
+        cmd = raw.lower().strip()
     else:
         return
     log.info(f"[cmd] chat={message.chat.type} raw={raw[:60]!r} cmd={cmd!r}")

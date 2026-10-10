@@ -679,7 +679,7 @@ async def handle_message(client, message: Message):
                               formal=(st["conv"] == "formal"),
                               quote=True)
         else:
-            _pm = enums.ParseMode.HTML if "<blockquote" in answer else None
+            _pm = enums.ParseMode.MARKDOWN if "\n> " in answer or answer.startswith("💭 **") else None
             await message.reply_text(answer, quote=True, parse_mode=_pm)
     except FloodWait as e:
         await asyncio.sleep(e.value)

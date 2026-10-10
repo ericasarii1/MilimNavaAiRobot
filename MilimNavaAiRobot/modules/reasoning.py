@@ -134,8 +134,7 @@ def clean_reasoning(r: str) -> str:
 
 
 def format_answer(answer: str, reasoning: str) -> str:
-    """Jawaban + blok 💭 Reasoning (blockquote expandable — bisa dibuka/
-    ditutup di Telegram, persis tampilan reasoning model modern)."""
+    """Jawaban + blok 💭 Reasoning (markdown, quote >). Tanpa HTML."""
     if not reasoning:
         return answer
     r = clean_reasoning(reasoning.strip())
@@ -144,9 +143,6 @@ def format_answer(answer: str, reasoning: str) -> str:
     if len(r) > MAX_REASON_SHOW:
         r = r[:MAX_REASON_SHOW].rsplit(" ", 1)[0] + " …"
     r = r.replace("```", "")
-    # escape HTML di KEDUA bagian agar parse_mode=HTML aman
-    import html as _html
-    r = _html.escape(r)
-    answer = _html.escape(answer)
-    return (f"💭 <b>Reasoning:</b>\n"
-            f"<blockquote expandable>{r}</blockquote>\n\n{answer}")
+    # markdown quote: tiap baris diawali '>'
+    q = "\n".join("> " + ln for ln in r.splitlines() or [r])
+    return f"💭 **Reasoning:**\n{q}\n\n{answer}"

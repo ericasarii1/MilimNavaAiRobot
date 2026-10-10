@@ -140,14 +140,17 @@ def format_answer(answer: str, reasoning: str) -> str:
     r = clean_reasoning(reasoning.strip())
     if not r:
         return answer
-    if len(r) > MAX_REASON_SHOW:
-        r = r[:MAX_REASON_SHOW].rsplit(" ", 1)[0] + " …"
     r = r.replace("```", "")
     # blok kode dgn tombol "Salin Kode" ala Telegram
     q = f"```\n{r}\n```"
     head = f"💭 **Reasoning:**\n{q}\n\n"
-    # jaga total tetap muat 1 pesan Telegram (4096)
-    budget = 3950 - len(head)
-    if len(answer) > budget > 0:
-        answer = answer[:budget].rsplit(".", 1)[0].rsplit("\n", 1)[0] + "…"
+    # reasoning TANPA batas (ala model reasoning asli). Kalau total melebihi
+    # 4096 Telegram: jawaban utuh dipertahankan, REASONING yang dipangkas di ekor.
+    room = 3950 - len(answer) - 20
+    if room < len(q):
+        if room > 100:
+            q = q[:room].rsplit(" ", 1)[0] + " …\n```"
+        else:
+            q = "…\n```"  # jawaban super panjang, reasoning tinggal tanda
+    head = f"💭 **Reasoning:**\n{q}\n\n"
     return head + answer

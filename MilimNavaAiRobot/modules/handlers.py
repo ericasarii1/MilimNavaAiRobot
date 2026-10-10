@@ -421,6 +421,14 @@ async def ai_respond(client, message: Message, user_text: str,
     except Exception as e:
         log.debug(f"thread err: {e}")
 
+    # kesadaran lokasi SELALU (grup & DM) — anti "gue gak bisa liat grup"
+    try:
+        _wa = await WA.always_inject(chat.id)
+        if _wa:
+            system += _wa
+    except Exception as e:
+        log.debug(f"wa always err: {e}")
+
     msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
 

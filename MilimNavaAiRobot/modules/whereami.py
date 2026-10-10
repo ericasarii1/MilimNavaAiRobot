@@ -110,6 +110,31 @@ def _active(ts: int) -> str:
     return f"terakhir aktif {mins // 1440} hari lalu"
 
 
+async def always_inject(chat_id: int) -> str:
+    """Ringkasan lokasi SELALU diinject (kecil): grup aktif + jumlah user DM.
+    Dengan ini LLM tidak pernah buta soal di grup mana dia ada."""
+    try:
+        groups = await _get(GKEY, {})
+        users = await _get(DMLIST, {})
+        lines = []
+        for cid, g in sorted(groups.items(), key=lambda kv: -kv[1].get("last", 0))[:10]:
+            lines.append(f"{g.get('title', 'Grup')} ({_active(g['last'])})")
+        if not lines:
+            lines = ["(belum ada grup tercatat)"]
+        dm_names = [r.get("name", "?") for r in sorted(
+            users.values(), key=lambda r: -r.get("last", 0))[:8]]
+        return ("\n\nKESADARAN LOKASI (data nyata sistem — SELALU dipakai "
+                "kalau ditanya): Grup tempat kamu aktif: " +
+                "; ".join(lines) + ". User yang pernah/pernah chat private "
+                "sama: " + (", ".join(dm_names) if dm_names else "(belum "
+                "ada)") + ". Kamu PUNYA catatan ini — JANGAN PERNAH bilang "
+                "tidak bisa melihat daftar grup atau tidak tahu siapa yang "
+                "chat denganmu.")
+    except Exception as e:
+        log.debug(f"always_inject err: {e}")
+        return ""
+
+
 async def maybe_inject(chat_id, is_private: bool, user_text: str) -> str:
     """Inject daftar grup/DM kalau user nanyain."""
     t = user_text or ""

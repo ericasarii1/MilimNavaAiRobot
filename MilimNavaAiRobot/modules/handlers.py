@@ -294,28 +294,33 @@ async def ai_respond(client, message: Message, user_text: str,
     # pertanyaan yang butuh eksplorasi; sisanya jawaban langsung
     use_agent = bool(user_text) and len(user_text) > 25 and \
         st.get("chatbot") != "off" and not media_b64
-    # reasoning 2-pass (mikir dulu ala model reasoning) — untuk pertanyaan
-    # yang butuh logika tapi tidak butuh tool eksternal
-    use_reason = (not use_agent and bool(user_text)
-                  and st.get("chatbot") != "off")
-    if use_reason:
+    # reasoning 2-pass (mikir dulu ala model reasoning) — SELALU (semua teks),
+    # lalu jawaban final via agentic tool / chat biasa
+    ai_respond._reasoning = None
+    _reasoning = None
+    if bool(user_text) and st.get("chatbot") != "off":
         try:
-            answer, _reasoning = await RS.think(llm, user_text, system, msgs)
+            _answer0, _reasoning = await RS.think(llm, user_text, system, msgs)
             ai_respond._reasoning = _reasoning
         except Exception as e:
             log.debug(f"reasoning err: {e}")
-            answer, _reasoning = None, None
             ai_respond._reasoning = None
-        if not answer:
-            answer = await llm.chat(msgs, image_b64=media_b64)
-    elif use_agent:
+    if use_agent:
         try:
             answer = await AG.agentic_chat(llm, msgs)
         except Exception as e:
             log.debug(f"agent err: {e}")
             answer = await llm.chat(msgs, image_b64=media_b64)
     else:
-        answer = await llm.chat(msgs, image_b64=media_b64)
+        if _reasoning:
+            try:
+                answer, _r2 = await RS.think(llm, user_text, system, msgs)
+                answer = answer or await llm.chat(msgs, image_b64=media_b64)
+            except Exception as e:
+                log.debug(f"reason final err: {e}")
+                answer = await llm.chat(msgs, image_b64=media_b64)
+        else:
+            answer = await llm.chat(msgs, image_b64=media_b64)
 
     # fact-check otomatis (fitur 1) — hanya utk jawaban panjang berklaim
     try:
@@ -710,7 +715,26 @@ async def handle_message(client, message: Message):
                               quote=True)
         else:
             _pm = enums.ParseMode.MARKDOWN if "```" in answer else None
-            await message.reply_text(answer, quote=True, parse_mode=_pm)
+            # jawaban >4096 dipecah otomatis ke beberapa pesan berurutan
+            if len(answer) <= 4000:
+                await message.reply_text(answer, quote=True, parse_mode=_pm)
+            else:
+                parts, cur = [], ""
+                for para in answer.split("\n\n"):
+                    if cur and len(cur) + len(para) + 2 > 3800:
+                        parts.append(cur); cur = para
+                    else:
+                        cur = (cur + "\n\n" + para) if cur else para
+                if cur:
+                    parts.append(cur)
+                first = True
+                for part in parts:
+                    if first:
+                        await message.reply_text(part, quote=True, parse_mode=_pm)
+                        first = False
+                    else:
+                        await message.reply_text(part, parse_mode=_pm)
+                        await asyncio.sleep(0.6)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

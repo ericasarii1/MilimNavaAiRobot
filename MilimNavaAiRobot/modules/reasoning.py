@@ -149,10 +149,6 @@ def format_answer(answer: str, reasoning: str) -> str:
         return answer
     r = r.replace("```", "")
     r = _strip_nonascii(r)
-    # isi reasoning = duplikat jawaban? (ngetik ulang) → sembunyikan bloknya
-    try:
-        if not r or len(r) < 30 or reasoning_duplicates_answer(r, answer):
-            return answer
-    except Exception:
-        pass
+    if not r:
+        return answer
     return f"☁️ **Reasoning:**\n```\n{r}\n```\n\n{answer}"

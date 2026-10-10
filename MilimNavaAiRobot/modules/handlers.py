@@ -297,30 +297,24 @@ async def ai_respond(client, message: Message, user_text: str,
     # reasoning 2-pass (mikir dulu ala model reasoning) — SELALU (semua teks),
     # lalu jawaban final via agentic tool / chat biasa
     ai_respond._reasoning = None
-    _reasoning = None
+    _pre_answer = None
     if bool(user_text) and st.get("chatbot") != "off":
         try:
-            _answer0, _reasoning = await RS.think(llm, user_text, system, msgs)
+            _pre_answer, _reasoning = await RS.think(llm, user_text, system, msgs)
             ai_respond._reasoning = _reasoning
         except Exception as e:
             log.debug(f"reasoning err: {e}")
             ai_respond._reasoning = None
     if use_agent:
+        # agentic: putusan tool tetap AI; reasoning di atas hanya utk blok tampil
         try:
             answer = await AG.agentic_chat(llm, msgs)
         except Exception as e:
             log.debug(f"agent err: {e}")
-            answer = await llm.chat(msgs, image_b64=media_b64)
+            answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
     else:
-        if _reasoning:
-            try:
-                answer, _r2 = await RS.think(llm, user_text, system, msgs)
-                answer = answer or await llm.chat(msgs, image_b64=media_b64)
-            except Exception as e:
-                log.debug(f"reason final err: {e}")
-                answer = await llm.chat(msgs, image_b64=media_b64)
-        else:
-            answer = await llm.chat(msgs, image_b64=media_b64)
+        # jalur biasa: pakai jawaban pass-2 dari reasoning (tak dobel request)
+        answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
 
     # fact-check otomatis (fitur 1) — hanya utk jawaban panjang berklaim
     try:

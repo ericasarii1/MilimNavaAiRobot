@@ -160,10 +160,16 @@ _NOT_NAME = {
 }
 
 
+BOT_USERNAME = "MilimNavaRobot"   # @MilimNavaRobot
+
+
 def _fuzzy_name_hit(text: str) -> bool:
     """Kenali nama bot walau ada typo (lik~lim, milim~milm, nawaa~nava)."""
     if not text:
         return False
+    # tag mention akun bot: @MilimNavaRobot / @milimnavarobot di mana pun
+    if BOT_USERNAME.lower() in text.lower():
+        return True
     for w in _re.findall(r"[a-z]+", text.lower()):
         if w in _NAME_WORDS:
             return True

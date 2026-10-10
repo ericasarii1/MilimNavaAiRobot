@@ -269,7 +269,20 @@ async def ai_respond(client, message: Message, user_text: str,
     # pertanyaan yang butuh eksplorasi; sisanya jawaban langsung
     use_agent = bool(user_text) and len(user_text) > 25 and \
         st.get("chatbot") != "off" and not media_b64
-    if use_agent:
+    # reasoning 2-pass (mikir dulu ala model reasoning) — untuk pertanyaan
+    # yang butuh logika tapi tidak butuh tool eksternal
+    use_reason = (not use_agent and bool(user_text)
+                  and RS.needs_reasoning(user_text)
+                  and st.get("chatbot") != "off")
+    if use_reason:
+        try:
+            answer = await RS.think(llm, user_text, system, msgs)
+        except Exception as e:
+            log.debug(f"reasoning err: {e}")
+            answer = None
+        if not answer:
+            answer = await llm.chat(msgs, image_b64=media_b64)
+    elif use_agent:
         try:
             answer = await AG.agentic_chat(llm, msgs)
         except Exception as e:

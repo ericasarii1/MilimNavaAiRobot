@@ -164,7 +164,8 @@ async def get_reply_chain(message, depth: int = 4) -> str:
         return ""
     parts.reverse()
     return ("\n\nUTAS REPLY (dari awal ke baru — ini konteks diskusi yang "
-            "sedang berlangsung):\n" + "\n".join(parts))
+            "sedang berlangsung; NAMA di depan tiap baris = penulis pesan itu):\n"
+            + "\n".join(parts))
 
 
 # ──────────────── 6. FEEDBACK / KOREKSI DIRI ────────────────

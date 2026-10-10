@@ -62,6 +62,15 @@ async def ai_respond(client, message: Message, user_text: str,
     system = (P.PROMPTS[conv].format(owner_id=C.OWNER_ID) +
               f"\n\nINFORMASI WAKTU SAAT INI: {now_str()}." +
               f"\nUSER ID Telegram penanya: {user.id}. Nama: {user.first_name}." +
+              f"\n\nIDENTITAS LAWAN BICARA — PENTING:\n"
+              f"- Yang sedang bertanya ke kamu adalah {user.first_name} "
+              f"(ID {user.id}). SELALU jawab kepada {user.first_name}.\n"
+              f"- Di utas reply / riwayat grup, tiap pesan punya penulis "
+              f"berbeda. JANGAN tertukar: kalau {user.first_name} me-reply "
+              f"pesan orang lain, itu hanya KONTEKS — penulis pesan itu "
+              f"BUKAN yang sedang ngobrol denganmu.\n"
+              f"- Alamatkan jawaban sesuai pertanyaan {user.first_name}, "
+              f"jangan seakan-akan penulis pesan yang di-reply yang bertanya." +
               "\n\nFORMAT OUTPUT — WAJIB:\n"
               "- Riwayat chat di context diberi tanda seperti (pesan dari X, 5 menit lalu) — itu HANYA metadata utkmu, JANGAN PERNAH menyalin/mengulang format itu di jawaban.\n"
               "- Jawaban langsung isi saja, tanpa prefiks nama/waktu/penanda apa pun.")

@@ -303,8 +303,10 @@ async def ai_respond(client, message: Message, user_text: str,
     if bool(user_text) and st.get("chatbot") != "off":
         try:
             _pre_answer, _reasoning = await RS.think(llm, user_text, system, msgs)
+            ai_respond._reasoning = _reasoning
         except Exception as e:
             log.debug(f"reasoning err: {e}")
+            ai_respond._reasoning = None
     if use_agent:
         try:
             answer = await AG.agentic_chat(llm, msgs)
@@ -640,8 +642,13 @@ async def handle_message(client, message: Message):
                 answer, formal=(st["conv"] == "formal"))
         except Exception as e:
             log.debug(f"normalize err: {e}")
-        # blok reasoning tidak ditampilkan (perilaku normal pra-modul reasoning)
-        pass
+        # tampilkan reasoning sbg blok markdown (☁️ Reasoning + backtick)
+        _rp = getattr(ai_respond, "_reasoning", None)
+        if _rp:
+            try:
+                answer = RS.format_answer(answer, _rp)
+            except Exception as e:
+                log.debug(f"reason fmt err: {e}")
     except LLMError:
         await _error_reply(message, st["conv"])
         await thinker.stop(client, think_msg)

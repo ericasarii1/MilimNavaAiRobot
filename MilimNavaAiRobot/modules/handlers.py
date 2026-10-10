@@ -37,6 +37,9 @@ from MilimNavaAiRobot.modules import lifedata as LD
 from MilimNavaAiRobot.modules import sticker_reply as SR
 from MilimNavaAiRobot.modules import cross_chat as CC
 from MilimNavaAiRobot.modules import brainbox as BB
+from MilimNavaAiRobot.modules import reasoning as RS
+from MilimNavaAiRobot.modules import deep_brain as DB2
+from MilimNavaAiRobot.modules import media_transcript as MT2
 
 log = logging.getLogger("milim.handlers")
 
@@ -81,6 +84,26 @@ async def ai_respond(client, message: Message, user_text: str,
 
     # memori jangka panjang
     system += LTM.ltm_prompt(await LTM.get_ltm(chat.id, user.id))
+
+    # sejarah grup (deep brain 1)
+    if chat.type != enums.ChatType.PRIVATE:
+        try:
+            system += DB2.archive_prompt(await DB2.get_archive(chat.id))
+        except Exception as e:
+            log.debug(f"arch prompt err: {e}")
+
+    # konteks kesenjangan (deep brain 4)
+    try:
+        _lasth = await memory.get(chat.id, user.id, limit=6)
+        fu = await DB2.followup_context(chat.id, user.id, _lasth or [])
+        if fu:
+            system += fu
+    except Exception as e:
+        log.debug(f"followup ctx err: {e}")
+
+    # mode perencanaan (deep brain 2)
+    if DB2.needs_planning(user_text or ""):
+        system += DB2.PLAN_ADDON
 
     msgs = [{"role": "system", "content": system}]
 
@@ -456,6 +479,12 @@ async def handle_message(client, message: Message):
                 await db.set(f"user_groups:{user_id}", _json.dumps(arr))
         except Exception as e:
             log.debug(f"ugroups err: {e}")
+        # arsip sejarah grup: rangkum berkala (deep brain 1)
+        try:
+            asyncio.ensure_future(DB2.bump_and_maybe_archive(
+                chat_id, llm, memory))
+        except Exception as e:
+            log.debug(f"garch bump err: {e}")
 
     respond, reason = should_respond(st, text, user_id)
 

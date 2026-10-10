@@ -350,6 +350,15 @@ async def ai_respond(client, message: Message, user_text: str,
             answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
     else:
         answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
+    if not _pre_answer and not ai_respond._reasoning and st.get("chatbot") != "off":
+        # fallback: reasoning kadang gagal (LLM) → regenerate sekali supaya blok
+        # reasoning selalu ada di jawaban percakapan
+        try:
+            log.warning("reasoning kosong → regenerate sekali")
+            _, ai_respond._reasoning = await RS.think(llm, user_text or "(media)",
+                                                      system, msgs)
+        except Exception as e:
+            log.debug(f"reason regen err: {e}")
 
     # fact-check otomatis (fitur 1) — hanya utk jawaban panjang berklaim
     try:

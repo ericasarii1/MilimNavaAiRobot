@@ -708,7 +708,8 @@ async def handle_message(client, message: Message):
                               formal=(st["conv"] == "formal"),
                               quote=True)
         else:
-            _pm = enums.ParseMode.MARKDOWN if "```" in answer else None
+            _pm = (enums.ParseMode.MARKDOWN
+                   if answer.count("```") >= 2 else None)
             # jawaban >4096 dipecah otomatis ke beberapa pesan berurutan
             if len(answer) <= 4000:
                 await message.reply_text(answer, quote=True, parse_mode=_pm)
@@ -723,12 +724,17 @@ async def handle_message(client, message: Message):
                     parts.append(cur)
                 first = True
                 for part in parts:
-                    if first:
-                        await message.reply_text(part, quote=True, parse_mode=_pm)
+                    _p = _pm if part.count("```") >= 2 else None
+                    try:
+                        if first:
+                            await message.reply_text(part, quote=True, parse_mode=_p)
+                            first = False
+                        else:
+                            await message.reply_text(part, parse_mode=_p)
+                            await asyncio.sleep(0.6)
+                    except Exception:
+                        await message.reply_text(part, quote=first)
                         first = False
-                    else:
-                        await message.reply_text(part, parse_mode=_pm)
-                        await asyncio.sleep(0.6)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

@@ -90,6 +90,7 @@ async def think(llm, user_text: str, system: str, msgs: list):
             {"role": "user", "content": user_text + "\n\n" + REASONING_INSTRUCTION}]
         reasoning = await llm.chat(r_msgs)
         if not reasoning or len(reasoning) < 60:
+            log.warning(f"reasoning terlalu pendek/kosong: {len(reasoning or '')} char")
             return None, None
         f_msgs = list(msgs) + [
             {"role": "user", "content": user_text + final_instruction(reasoning)}]
@@ -98,7 +99,7 @@ async def think(llm, user_text: str, system: str, msgs: list):
             return None, None
         return answer, reasoning
     except Exception as e:
-        log.debug(f"reasoning err: {e}")
+        log.warning(f"reasoning err: {e}")
         return None, None
 
 

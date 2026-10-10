@@ -1,3 +1,4 @@
+from pyrogram import enums as _enums
 # ══════════════════════════════════════════════════════════════════
 #   SUMMARY — rangkum riwayat percakapan on-demand
 #   "Milim rangkum" / "Milim rangkum obrolan"
@@ -55,15 +56,28 @@ async def handle_summary(client, message: Message):
         return
 
     try:
-        answer = await llm.chat([
-            {"role": "system",
-             "content": P.PROMPTS[st["conv"]].format(owner_id=C.OWNER_ID) +
-                        "\n\nTugas spesifik sekarang: RANGKUM percakapan "
-                        "berikut dalam poin-poin singkat (maks 6 poin) — "
-                        "topik, keputusan, dan hal penting yang disebut. "
-                        "Tetap pakai kepribadianmu."},
-            {"role": "user", "content": f"Rangkum {label} ini:\n\n{convo}"},
-        ])
+        _sys = (P.PROMPTS[st["conv"]].format(owner_id=C.OWNER_ID) +
+                "\n\nTugas spesifik sekarang: RANGKUM percakapan "
+                "berikut dalam poin-poin singkat (maks 6 poin) — "
+                "topik, keputusan, dan hal penting yang disebut. "
+                "Tetap pakai kepribadianmu.")
+        _msgs = [{"role": "system", "content": _sys},
+                 {"role": "user", "content": f"Rangkum {label} ini:\n\n{convo}"}]
+        try:
+            from MilimNavaAiRobot.modules import reasoning as _RS
+            _a, _r = await _RS.think(llm, f"Rangkum {label} ini:\n\n{convo[:3000]}",
+                                     _sys, _msgs)
+        except Exception:
+            _a, _r = None, None
+        answer = _a or await llm.chat(_msgs)
+        if _r:
+            try:
+                answer = _RS.format_answer(answer, _r)
+                _pm = _enums.ParseMode.MARKDOWN if "```" in answer else None
+                await message.reply_text(answer, quote=True, parse_mode=_pm)
+                return
+            except Exception:
+                pass
         await message.reply_text(f"📋 **Rangkuman {label}:**\n\n{answer}",
                                  quote=True)
     except Exception as e:

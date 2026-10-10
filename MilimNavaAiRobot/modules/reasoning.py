@@ -55,17 +55,21 @@ def needs_reasoning(text: str) -> bool:
 
 
 REASONING_INSTRUCTION = (
-    "THINK FIRST before answering. Write your thought process in ENGLISH, "
-    "plain text only (NO emoji, NO markdown, NO bullet lists, NO headings, "
-    "NO code blocks). Keep it SHORT (2-4 sentences), focused on HOW to "
-    "answer: what the user is really asking, what angle to take, what to "
-    "avoid. HARD RULES: do NOT write the actual answer, do NOT draft lists/"
-    "recommendations that belong in the answer, do NOT comment on the "
-    "user's behavior, do NOT mention limits or batches. Example GOOD: "
-    "'User wants a long list; previous answer covered A and B, so list "
-    "the rest in one go, no batching.' Example BAD: 'wkwk spam lagi, oke "
-    "ini tambahannya: 1. JJK S3...'. If the question is trivial, one short "
-    "sentence is enough.")
+    "THINK FIRST before answering. Write your private scratchpad in ENGLISH "
+    "ONLY — even though the user speaks Indonesian and your final answer "
+    "will be in Indonesian, THIS TEXT MUST BE FULLY IN ENGLISH. Plain text "
+    "only: NO emoji, NO markdown, NO bullet lists, NO headings, NO code "
+    "blocks. Keep it SHORT (2-4 sentences) and talk ONLY about your "
+    "APPROACH: what the user really wants, the angle/persona to use, what "
+    "to avoid. HARD RULES: NEVER retype, quote or restate the user's "
+    "message; NEVER write or draft the answer itself (no titles, no list "
+    "items, no example sentences that would appear in the reply); do NOT "
+    "comment on the user's behavior; do NOT mention limits or batches; do "
+    "NOT mention metadata, timestamps, message ids or internal formats. "
+    "GOOD example: 'User asks who I am chatting with; answer casually as "
+    "Milim, keep it short and light.' BAD example (never do this): "
+    "'Wkwkwk spam 3x lagi, nih gue kasih: 1. JJK S3, 2. Chainsaw Man'. "
+    "If the message is trivial, one short English sentence is enough.")
 
 
 def final_instruction(reasoning: str) -> str:
@@ -134,20 +138,40 @@ def clean_reasoning(r: str) -> str:
     return _META_LINE.sub("", r).strip(" \n\t-*_")
 
 
+# kata/penanda khas Indonesia — kalau reasoning banyak ini, berarti bukan Inggris
+_ID_MARKERS = (
+    "yang", "dengan", "untuk", "adalah", "tapi", "juga", "sudah", "gue",
+    "nggak", "gak", "banget", "kayak", "gitu", "aja", "bisa", "harus",
+    "saya", "dan", "atau", "ini", "itu", "aku", "kamu", "nanti", "biar",
+    "jawab", "balas", "user minta", "soalnya", "malah", "udah",
+)
+
+# frasa struktural khas Indonesia yang sering bocor sebagai "rencana jawaban"
+_ID_PLAN = re.compile(
+    r"(gue\s+(harus|mau|akan)|aku\s+(harus|mau)|user\s+(minta|pengen|bertanya)|"
+    r"jawab\s+(santai|dengan|pakai)|balas\s+(santai|dengan)|"
+    r"pakai\s+gaya|tanpa\s+(nyebut|sebut)|hindari\s)", re.IGNORECASE)
+
+
+def _looks_indonesian(r: str) -> bool:
+    """True kalau teks reasoning lebih mirip Bahasa Indonesia daripada Inggris."""
+    low = " " + r.lower() + " "
+    hits = sum(1 for w in _ID_MARKERS if re.search(rf"\b{w}", low))
+    return hits >= 2 or bool(_ID_PLAN.search(r))
+
+
 def _strip_nonascii(r: str) -> str:
     """Buang semua karakter non-ASCII (emoji, unicode box, dsb) — teks polos."""
     return "".join(ch for ch in r if 32 <= ord(ch) < 127 or ch in "\n\r\t")
 
 
 def format_answer(answer: str, reasoning: str) -> str:
-    """Jawaban + blok 💭 Reasoning (markdown, quote >). Tanpa HTML."""
+    """Jawaban + blok Reasoning (markdown backtick, isi English polos)."""
     if not reasoning:
         return answer
     r = clean_reasoning(reasoning.strip())
-    if not r:
+    r = _strip_nonascii(r) if r else ""
+    # reasoning harus English & bukan salinan jawaban — kalau tidak, sembunyikan
+    if not r or len(r) < 30 or _looks_indonesian(r) or reasoning_duplicates_answer(r, answer):
         return answer
-    r = r.replace("```", "")
-    # isi reasoning: teks polos tanpa unicode/emoji
-    r = _strip_nonascii(r)
-    # header bold + emoji awan; isi di dalam blok backtick (tombol Salin Kode)
     return f"☁️ **Reasoning:**\n```\n{r}\n```\n\n{answer}"

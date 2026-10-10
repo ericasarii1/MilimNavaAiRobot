@@ -296,25 +296,17 @@ async def ai_respond(client, message: Message, user_text: str,
         st.get("chatbot") != "off" and not media_b64
     # reasoning 2-pass (mikir dulu ala model reasoning) — SELALU (semua teks),
     # lalu jawaban final via agentic tool / chat biasa
+    # reasoning 2-pass DIMATIKAN (balik ke perilaku normal sebelum modul
+    # reasoning). Modul tetap ada & bisa dihidupkan lagi bila diinginkan.
     ai_respond._reasoning = None
-    _pre_answer = None
-    if bool(user_text) and st.get("chatbot") != "off":
-        try:
-            _pre_answer, _reasoning = await RS.think(llm, user_text, system, msgs)
-            ai_respond._reasoning = _reasoning
-        except Exception as e:
-            log.debug(f"reasoning err: {e}")
-            ai_respond._reasoning = None
     if use_agent:
-        # agentic: putusan tool tetap AI; reasoning di atas hanya utk blok tampil
         try:
             answer = await AG.agentic_chat(llm, msgs)
         except Exception as e:
             log.debug(f"agent err: {e}")
-            answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
+            answer = await llm.chat(msgs, image_b64=media_b64)
     else:
-        # jalur biasa: pakai jawaban pass-2 dari reasoning (tak dobel request)
-        answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
+        answer = await llm.chat(msgs, image_b64=media_b64)
 
     # fact-check otomatis (fitur 1) — hanya utk jawaban panjang berklaim
     try:
@@ -642,13 +634,8 @@ async def handle_message(client, message: Message):
                 answer, formal=(st["conv"] == "formal"))
         except Exception as e:
             log.debug(f"normalize err: {e}")
-        # tampilkan reasoning sbg blok collapsible (ala model reasoning)
-        _rp = getattr(ai_respond, "_reasoning", None)
-        if _rp:
-            try:
-                answer = RS.format_answer(answer, _rp)
-            except Exception as e:
-                log.debug(f"reason fmt err: {e}")
+        # blok reasoning tidak ditampilkan (perilaku normal pra-modul reasoning)
+        pass
     except LLMError:
         await _error_reply(message, st["conv"])
         await thinker.stop(client, think_msg)

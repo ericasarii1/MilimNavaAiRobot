@@ -55,17 +55,18 @@ def needs_reasoning(text: str) -> bool:
 
 
 REASONING_INSTRUCTION = (
-    "THINK FIRST before answering. Write your thought process in ENGLISH, "
-    "plain text only (NO emoji, NO markdown, NO bullet lists, NO headings, "
-    "NO code blocks). Keep it SHORT (2-4 sentences), focused on HOW to "
-    "answer: what the user is really asking, what angle to take, what to "
-    "avoid. HARD RULES: do NOT write the actual answer, do NOT draft lists/"
-    "recommendations that belong in the answer, do NOT comment on the "
-    "user's behavior, do NOT mention limits or batches. Example GOOD: "
-    "'User wants a long list; previous answer covered A and B, so list "
-    "the rest in one go, no batching.' Example BAD: 'wkwk spam lagi, oke "
-    "ini tambahannya: 1. JJK S3...'. If the question is trivial, one short "
-    "sentence is enough.")
+    "THINK FIRST before answering. Write your short scratchpad in ENGLISH "
+    "(like a reasoning model does), plain text: NO emoji, NO markdown, NO "
+    "bullets, NO headings, NO code blocks. Keep it SHORT (2-4 sentences) "
+    "and talk only about your APPROACH: what the user really wants, the "
+    "angle/persona to use, what to avoid. HARD RULES: NEVER retype, quote "
+    "or restate the user's message; NEVER write or draft the answer itself "
+    "(no titles, no list items, no sentences that would appear in the "
+    "reply); do NOT comment on the user's behavior; do NOT mention limits, "
+    "batches, metadata or internal formats. GOOD: 'User asks who I am "
+    "chatting with; answer casually as Milim, keep it short.' BAD: 'wkwkwk "
+    "spam lagi, ini tambahannya: 1. JJK S3, 2. Chainsaw Man'. If the "
+    "message is trivial, one short sentence is enough.")
 
 
 def final_instruction(reasoning: str) -> str:
@@ -117,7 +118,7 @@ def reasoning_duplicates_answer(reasoning: str, answer: str) -> bool:
         return False
     inter = len(ra & aa) / max(1, len(ra | aa))
     contained = sum(1 for w in ra if w in aa) / max(1, len(ra))
-    return inter >= 0.35 or contained >= 0.7
+    return inter >= 0.3 or contained >= 0.6
 
 
 MAX_REASON_SHOW = 350
@@ -140,14 +141,18 @@ def _strip_nonascii(r: str) -> str:
 
 
 def format_answer(answer: str, reasoning: str) -> str:
-    """Jawaban + blok 💭 Reasoning (markdown, quote >). Tanpa HTML."""
+    """Jawaban + blok ☁️ Reasoning (markdown backtick, isi polos)."""
     if not reasoning:
         return answer
     r = clean_reasoning(reasoning.strip())
     if not r:
         return answer
     r = r.replace("```", "")
-    # isi reasoning: teks polos tanpa unicode/emoji
     r = _strip_nonascii(r)
-    # header bold + emoji awan; isi di dalam blok backtick (tombol Salin Kode)
+    # isi reasoning = duplikat jawaban? (ngetik ulang) → sembunyikan bloknya
+    try:
+        if not r or len(r) < 30 or reasoning_duplicates_answer(r, answer):
+            return answer
+    except Exception:
+        pass
     return f"☁️ **Reasoning:**\n```\n{r}\n```\n\n{answer}"

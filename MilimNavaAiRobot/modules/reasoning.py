@@ -87,11 +87,16 @@ async def think(llm, user_text: str, system: str, msgs: list):
     """Jalankan 2-pass reasoning. Return (jawaban_final, reasoning) atau
     (None, None) jika gagal (caller jatuh ke jalur jawab biasa)."""
     try:
-        r_msgs = list(msgs) + [
-            {"role": "user", "content": user_text + "\n\n" + REASONING_INSTRUCTION}]
-        reasoning = await llm.chat(r_msgs)
-        if not reasoning or len(reasoning) < 60:
-            log.warning(f"reasoning terlalu pendek/kosong: {len(reasoning or '')} char")
+        reasoning = ""
+        for _try in range(2):          # retry sekali kalau hasilnya kosong/pendek
+            r_msgs = list(msgs) + [
+                {"role": "user",
+                 "content": user_text + "\n\n" + REASONING_INSTRUCTION}]
+            reasoning = (await llm.chat(r_msgs)) or ""
+            if len(reasoning.strip()) >= 15:
+                break
+        if len(reasoning.strip()) < 15:
+            log.warning(f"reasoning kosong: {len(reasoning)} char")
             return None, None
         f_msgs = list(msgs) + [
             {"role": "user", "content": user_text + final_instruction(reasoning)}]
@@ -138,6 +143,18 @@ def clean_reasoning(r: str) -> str:
 def _strip_nonascii(r: str) -> str:
     """Buang semua karakter non-ASCII (emoji, unicode box, dsb) — teks polos."""
     return "".join(ch for ch in r if 32 <= ord(ch) < 127 or ch in "\n\r\t")
+
+
+_BLOCK_RE = re.compile(
+    r"☁️\s*\*\*Reasoning:\*\*\s*```.*?```\s*", re.DOTALL)
+
+
+def strip_block(text: str) -> str:
+    """Buang blok reasoning dari teks (dipakai sebelum simpan ke memori
+    supaya model tidak meniru pola reasoning-dalam-reasoning)."""
+    if not text:
+        return text
+    return _BLOCK_RE.sub("", text).strip()
 
 
 def format_answer(answer: str, reasoning: str) -> str:

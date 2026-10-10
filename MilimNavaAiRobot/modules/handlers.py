@@ -643,12 +643,15 @@ async def handle_message(client, message: Message):
         except Exception as e:
             log.debug(f"normalize err: {e}")
         # tampilkan reasoning sbg blok markdown (☁️ Reasoning + backtick)
+        _plain = answer                     # versi tanpa blok (utk memori/konteks)
         _rp = getattr(ai_respond, "_reasoning", None)
         if _rp:
             try:
                 answer = RS.format_answer(answer, _rp)
             except Exception as e:
                 log.debug(f"reason fmt err: {e}")
+        else:
+            _plain = answer
     except LLMError:
         await _error_reply(message, st["conv"])
         await thinker.stop(client, think_msg)
@@ -663,12 +666,16 @@ async def handle_message(client, message: Message):
 
     await thinker.stop(client, think_msg)
 
-    # simpan jawaban
+    # simpan jawaban TANPA blok reasoning (biar model gak niru pola dobel)
+    try:
+        _plain = RS.strip_block(answer) if "answer" in dir() else answer
+    except Exception:
+        _plain = answer
     if is_private:
-        await memory.add(chat_id, user_id, "assistant", answer)
+        await memory.add(chat_id, user_id, "assistant", _plain)
     else:
-        await memory.add_group(chat_id, "Milim", "assistant", answer)
-        await memory.add(chat_id, user_id, "assistant", answer)
+        await memory.add_group(chat_id, "Milim", "assistant", _plain)
+        await memory.add(chat_id, user_id, "assistant", _plain)
 
     # long-term memory: mungkin trigger ringkasan otomatis
     try:

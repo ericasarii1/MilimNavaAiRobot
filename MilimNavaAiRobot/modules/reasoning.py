@@ -143,5 +143,5 @@ def format_answer(answer: str, reasoning: str) -> str:
     r = r.replace("```", "")
     # blok kode dgn tombol "Salin Kode" ala Telegram
     q = f"```\n{r}\n```"
-    # jawaban & reasoning dua-duanya tanpa batas (ala model reasoning asli)
-    return f"💭 **Reasoning:**\n{q}\n\n{answer}"
+    # reasoning awal style: header teks + blok kode, tanpa bold/emoji
+    return f"Reasoning:\n{q}\n\n{answer}"

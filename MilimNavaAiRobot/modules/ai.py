@@ -126,7 +126,8 @@ class LLM:
                         ],
                     }
                     break
-        payload = {"model": p.model, "messages": msgs, "temperature": 0.8}
+        payload = {"model": p.model, "messages": msgs, "temperature": 0.8,
+                   "max_tokens": 8000}
         async with self.session.post(
             p.base_url,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
@@ -190,7 +191,7 @@ class LLM:
                 ]
             msgs.append({"role": "user" if m["role"] == "user" else "assistant",
                          "content": content})
-        payload = {"model": p.model, "max_tokens": 3000, "messages": msgs,
+        payload = {"model": p.model, "max_tokens": 8000, "messages": msgs,
                    "system": sys_txt}
         async with self.session.post(
             p.base_url,

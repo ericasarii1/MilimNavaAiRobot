@@ -1,3 +1,5 @@
+from pyrogram import enums as _enums
+PYRO_MARKDOWN = _enums.ParseMode.MARKDOWN
 # ══════════════════════════════════════════════════════════════════
 #   MEDIA GEN & REACTION — fitur canggih tambahan:
 #   7. IMAGE GEN     : "Milim bikinin gambar ..." → image (Pollinations,
@@ -116,14 +118,29 @@ async def summarize_youtube(message: Message, text: str, vid: str) -> bool:
             "dengerin isinya. Coba video lain ya!")
         return True
     try:
-        answer = await llm.chat([
-            {"role": "system", "content":
-                "Rangkum transkrip video YouTube berikut untuk user: "
+        _sys = ("Rangkum transkrip video YouTube berikut untuk user: "
                 "poin-poin utama (maks 6), gagasan inti, dan kesimpulan. "
                 "Bahasa Indonesia, ringkas, siap dibaca. Jangan mengarang "
-                "di luar isi transkrip."},
-            {"role": "user", "content": f"TRANSKRIP:\n{transcript}"},
-        ])
+                "di luar isi transkrip.")
+        _msgs = [{"role": "system", "content": _sys},
+                 {"role": "user", "content": f"TRANSKRIP:\n{transcript}"}]
+        try:
+            from MilimNavaAiRobot.modules import reasoning as _RS
+            _a, _r = await _RS.think(
+                llm, f"Rangkum video ini.\nTRANSKRIP:\n{transcript[:4000]}",
+                _sys, _msgs)
+        except Exception:
+            _a, _r = None, None
+        answer = _a or await llm.chat(_msgs)
+        if _r:
+            try:
+                answer = _RS.format_answer(answer, _r)
+                await message.reply_text(
+                    answer, quote=True,
+                    parse_mode=PYRO_MARKDOWN if "```" in answer else None)
+                return True
+            except Exception:
+                pass
         await message.reply_text(
             f"📹 **Rangkuman video:**\n\n{answer}", quote=True)
     except Exception as e:

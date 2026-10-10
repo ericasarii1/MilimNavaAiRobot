@@ -283,10 +283,13 @@ async def ai_respond(client, message: Message, user_text: str,
     msgs[0] = {"role": "system", "content": system}
     msgs.append({"role": "user", "content": final_text or "(media tanpa teks)"})
 
-    # deep think utk pertanyaan kompleks
+    # deep think utk pertanyaan kompleks — jangan return awal: tetap lewat
+    # alur bawah supaya blok reasoning tampil. Deep think hanya ganti sumber
+    # jawaban via flag.
+    _deep = False
     try:
         if user_text and ST.is_deep_question(user_text) and st.get("chatbot") != "off":
-            return await ST.deep_think_answer(llm, msgs)
+            _deep = True
     except Exception as e:
         log.debug(f"deep think err: {e}")
 
@@ -307,7 +310,15 @@ async def ai_respond(client, message: Message, user_text: str,
         except Exception as e:
             log.debug(f"reasoning err: {e}")
             ai_respond._reasoning = None
-    if use_agent:
+    if _deep:
+        try:
+            answer = await ST.deep_think_answer(llm, msgs)
+        except Exception as e:
+            log.debug(f"deep think err: {e}")
+            answer = None
+        if not answer:
+            answer = _pre_answer or await llm.chat(msgs, image_b64=media_b64)
+    elif use_agent:
         try:
             answer = await AG.agentic_chat(llm, msgs)
         except Exception as e:

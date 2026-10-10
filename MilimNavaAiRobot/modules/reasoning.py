@@ -26,6 +26,25 @@ TOO_SIMPLE = re.compile(
     r"assalamualaikum|p|tes|test|halo kak)[\s!.]*$", re.IGNORECASE)
 
 
+def worth_reasoning(text: str) -> bool:
+    """Selalu reasoning untuk pesan yang ada isinya; lewati panggilan
+    nama/greeting/obrolan kosong agar tidak muncul scratchpad tak perlu."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if TOO_SIMPLE.match(t):
+        return False
+    # "lim", "lim lim lim", "milim nava" tanpa isi → tak perlu mikir
+    low = t.lower()
+    words = re.findall(r"[a-zA-Z]+", low)
+    if words and all(w in {"lim", "milim", "nava", "lilim", "limlim",
+                           "milm", "lik", "min"} for w in words):
+        return False
+    if len(t) < 15 and "?" not in t:
+        return False
+    return True
+
+
 def needs_reasoning(text: str) -> bool:
     if not text or len(text) < 20 or TOO_SIMPLE.match(text.strip()):
         return False
@@ -36,19 +55,21 @@ def needs_reasoning(text: str) -> bool:
 
 
 REASONING_INSTRUCTION = (
-    "SEKARANG PIKIRKAN PERTANYAAN INI SECARA MENDALAM. Tulis alur pikiran "
-    "MENTAHmu: pecah masalahnya, daftar fakta yang diketahui, hipotesis "
-    "yang mungkin, uji masing-masing, tunjukkan sudut pandang yang bisa "
-    "terlewat, dan kesimpulan sementara. Tulis bebas dan terstruktur — "
-    "ini SCRATCHPAD internal, tidak akan ditampilkan ke user. Jangan "
-    "pakai gaya percakapan di bagian ini, cukup logika.")
+    "SEKARANG PIKIRKAN SEBENTAR sebelum menjawab. Tulis alur pikirmu "
+    "SINGKAT (paling banyak 3-4 baris pendek), pakai bahasa yang sama "
+    "dengan obrolan (santai tetap santai). Fokus HANYA pada isi jawaban. "
+    "ATURAN KERAS: jangan pakai judul/heading (jangan tulis 'SCRATCHPAD', "
+    "'Fakta:', 'Hipotesis:', 'Analisis:'), jangan pakai bullet bernomor, "
+    "jangan mengomentari perilaku/kebiasaan user, jangan menyebut fitur, "
+    "tombol, atau aplikasi. Cukup inti pikiran yang mengarah ke jawaban.")
 
 
 def final_instruction(reasoning: str) -> str:
     """Instruksi pass-2: jawab final dengan modal reasoning."""
     return (
-        "\n\nHASIL ANALISIS INTERNALMU (scratchpad — JANGAN ditampilkan "
-        "atau dikutip apa adanya ke user):\n" + reasoning[:3000] +
+        "\n\nCATATAN PIKIRANMU (rahasia — JANGAN dikutip atau diungkap "
+        "ke user, jangan menyebut bahwa kamu punya catatan ini):\n"
+        + reasoning[:1500] +
         "\n\nTUGAS SEKARANG: tulis jawaban FINAL untuk user dengan gaya "
         "percakapan sesuai kepribadianmu (lihat system prompt). Ambil "
         "kesimpulan terbaik dari analisis di atas. Jangan menampilkan "
@@ -77,7 +98,18 @@ async def think(llm, user_text: str, system: str, msgs: list):
         return None, None
 
 
-MAX_REASON_SHOW = 1500
+MAX_REASON_SHOW = 480
+
+# buang sisa heading/bullet meta kalau model bandel
+_META_LINE = re.compile(
+    r"^\s*(?:#{1,6}\s*)?(?:[\*_`]*\s*)?"
+    r"(scratchpad|analisis|fakta|hipotesis|observasi|kesimpulan sementara|"
+    r"catatan|status|rencana|langkah-langkah|thought|thinking|analysis)"
+    r"\b[^\n]*[:\u2014-].*$", re.IGNORECASE | re.MULTILINE)
+
+
+def clean_reasoning(r: str) -> str:
+    return _META_LINE.sub("", r).strip(" \n\t-*_")
 
 
 def format_answer(answer: str, reasoning: str) -> str:
@@ -85,9 +117,11 @@ def format_answer(answer: str, reasoning: str) -> str:
     ditutup di Telegram, persis tampilan reasoning model modern)."""
     if not reasoning:
         return answer
-    r = reasoning.strip()
+    r = clean_reasoning(reasoning.strip())
+    if not r:
+        return answer
     if len(r) > MAX_REASON_SHOW:
-        r = r[:MAX_REASON_SHOW] + " …"
+        r = r[:MAX_REASON_SHOW].rsplit(" ", 1)[0] + " …"
     r = r.replace("```", "")
     # escape HTML di KEDUA bagian agar parse_mode=HTML aman
     import html as _html

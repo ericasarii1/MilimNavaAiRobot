@@ -168,12 +168,32 @@ _NOSTT_FORMAL = [
 ]
 
 
-def _stt_fail_text(conv: str, nostt: bool = False) -> tuple:
+async def _stt_fail_text(conv: str, nostt: bool = False) -> tuple:
+    """Respons gagal dengar: di-generate LLM sesuai mode, fallback bank."""
     formal = conv == "formal"
-    if nostt:
-        pool = _NOSTT_FORMAL if formal else _NOSTT_SANTAI
-    else:
-        pool = _FAIL_FORMAL if formal else _FAIL_SANTAI
+    gaya = ("santai/gaul, pakai gue/lo, singkat natural"
+            if not formal else
+            "formal/sopan, pakai saya/Anda, singkat")
+    situasi = ("transkripsi suara gagal (audio tidak terbaca) — minta user "
+               "merekam ulang"
+               if not nostt else
+               "belum ada penyedia speech-to-text — sampaikan bahwa bot "
+               "hanya bisa bicara, belum bisa mendengar; minta teks saja")
+    try:
+        from MilimNavaAiRobot import llm as _llm
+        out = await _llm.chat([
+            {"role": "system", "content":
+                f"Kamu bot Telegram. Buat SATU kalimat pendek (maks 15 kata) "
+                f"yang menyampaikan: {situasi}. Gaya: {gaya}. Boleh maksimal "
+                f"1 emoji. HANYA kalimatnya — tanpa penjelasan."},
+            {"role": "user", "content": "buat sekarang"}])
+        out = (out or "").strip().strip('"')
+        if 4 < len(out) < 120:
+            return out, formal
+    except Exception as e:
+        log.debug(f"stt fail gen err: {e}")
+    pool = ((_NOSTT_FORMAL if formal else _NOSTT_SANTAI) if nostt
+            else (_FAIL_FORMAL if formal else _FAIL_SANTAI))
     return _random.choice(pool), formal
 
 
@@ -200,7 +220,7 @@ async def handle_voice(client, message: Message):
         return
 
     if not GROQ_API_KEY and not C.PROVIDERS:
-        txt, formal = _stt_fail_text(st["conv"], nostt=True)
+        txt, formal = await _stt_fail_text(st["conv"], nostt=True)
         await reply_voice(message, txt, formal)
         return
 
@@ -215,7 +235,8 @@ async def handle_voice(client, message: Message):
         log.debug(f"stt fail: {e}")
 
     if not text:
-        await reply_voice(message, *_stt_fail_text(st["conv"]))
+        txt, formal = await _stt_fail_text(st["conv"])
+        await reply_voice(message, txt, formal)
         return
 
     # simpan flag: balasan harus berupa voice

@@ -119,7 +119,7 @@ def reasoning_duplicates_answer(reasoning: str, answer: str) -> bool:
     return inter >= 0.35 or contained >= 0.7
 
 
-MAX_REASON_SHOW = 480
+MAX_REASON_SHOW = 350
 
 # buang sisa heading/bullet meta kalau model bandel
 _META_LINE = re.compile(
@@ -145,4 +145,9 @@ def format_answer(answer: str, reasoning: str) -> str:
     r = r.replace("```", "")
     # markdown quote: tiap baris diawali '>'
     q = "\n".join("> " + ln for ln in r.splitlines() or [r])
-    return f"💭 **Reasoning:**\n{q}\n\n{answer}"
+    head = f"💭 **Reasoning:**\n{q}\n\n"
+    # jaga total tetap muat 1 pesan Telegram (4096)
+    budget = 3950 - len(head)
+    if len(answer) > budget > 0:
+        answer = answer[:budget].rsplit(".", 1)[0].rsplit("\n", 1)[0] + "…"
+    return head + answer

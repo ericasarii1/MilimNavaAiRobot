@@ -672,31 +672,11 @@ async def handle_message(client, message: Message):
                               quote=True)
         else:
             _pm = enums.ParseMode.MARKDOWN if "\n> " in answer or answer.startswith("💭 **") else None
-            # pecah jawaban panjang (Telegram max 4096/pc)
-            if len(answer) <= 4000:
-                await message.reply_text(answer, quote=True, parse_mode=_pm)
-            else:
-                _chunks = []
-                _cur = ""
-                for _para in answer.split("\n\n"):
-                    if len(_cur) + len(_para) + 2 > 3800:
-                        _chunks.append(_cur)
-                        _cur = _para
-                    else:
-                        _cur = (_cur + "\n\n" + _para) if _cur else _para
-                if _cur:
-                    _chunks.append(_cur)
-                _sent_first = False
-                for _ch in _chunks:
-                    try:
-                        if not _sent_first:
-                            await message.reply_text(_ch, quote=True, parse_mode=_pm)
-                            _sent_first = True
-                        else:
-                            await message.reply_text(_ch, parse_mode=_pm)
-                    except Exception:
-                        # markdown gagal → plain
-                        await message.reply_text(_ch, quote=not _sent_first)
+            # jaga biar muat 1 pesan (Telegram 4096): pangkas rapi di batas kalimat
+            if len(answer) > 3950:
+                answer = answer[:3950].rsplit(".", 1)[0].rsplit("\n", 1)[0] + "…"
+                log.debug(f"answer trimmed: {len(answer)}")
+            await message.reply_text(answer, quote=True, parse_mode=_pm)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

@@ -164,6 +164,22 @@ async def ai_respond(client, message: Message, user_text: str,
     if media_desc:
         final_text = f"{user_text}\n\n{media_desc}" if user_text else media_desc
 
+    # transcript audio/video yang di-reply + minta rangkuman (deep brain 4b)
+    try:
+        replied_msg = message.reply_to_message
+        if replied_msg and (replied_msg.audio or replied_msg.video) \
+                and MT2.wants_transcript(user_text or ""):
+            tr = await MT2.transcript_media(client, replied_msg, llm)
+            if tr:
+                system += ("\n\nTRANSKRIP MEDIA YANG DI-REPLY (rangkum "
+                           "berdasarkan ini):\n" + tr[:4000])
+            else:
+                system += ("\n\nCATATAN: user minta isi audio/video "
+                           "yang di-reply, tapi transkripsi sedang tidak "
+                           "tersedia. Sampaikan dengan jujur dan santai.")
+    except Exception as e:
+        log.debug(f"mtranscript err: {e}")
+
     # konteks pesan yang di-reply (fitur reply)
     try:
         replied = message.reply_to_message
@@ -527,6 +543,16 @@ async def handle_message(client, message: Message):
         answer = await ai_respond(client, message, merged,
                                   media_b64=media["b64"],
                                   media_desc=media["desc"])
+        # fact-verify (deep brain 3): klaim faktual dicek ke web
+        try:
+            answer = await DB2.verify_facts(llm, merged, answer)
+        except Exception as e:
+            log.debug(f"verify err: {e}")
+        # tandai interaksi (deep brain 4)
+        try:
+            await DB2.mark_conversation(chat_id, user_id)
+        except Exception as e:
+            log.debug(f"mark conv err: {e}")
     except LLMError:
         await message.reply_text(P.error_text(st["conv"]), quote=True)
         await thinker.stop(client, think_msg)

@@ -147,6 +147,7 @@ def format_answer(answer: str, reasoning: str) -> str:
     if not r:
         return answer
     r = r.replace("```", "")
-    # TEKS INGGRIS POLOS di dalam blok kode (tombol Salin Kode), tanpa emoji/unicode
+    # isi reasoning: teks polos tanpa unicode/emoji
     r = _strip_nonascii(r)
-    return f"**💭 Reasoning:**\n```\n{r}\n```\n\n{answer}"
+    # header bold + emoji awan; isi di dalam blok backtick (tombol Salin Kode)
+    return f"☁️ **Reasoning:**\n```\n{r}\n```\n\n{answer}"

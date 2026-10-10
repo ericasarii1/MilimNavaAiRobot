@@ -8,7 +8,7 @@ import asyncio
 import logging
 
 from pyrogram import enums
-from MilimNavaAiRobot import C, NAMES_RE
+from MilimNavaAiRobot import C, NAMES_RE, db, llm
 
 log = logging.getLogger("milim.util")
 
@@ -101,28 +101,110 @@ class Batcher:
         ent["event"].set()
 
 
-# ── thinking indicator ala claude/gemini (fitur 41) ──────────────
-class Thinker:
-    STEPS = ["🔍 Mencari…", "🧠 Berpikir…", "✨ Mulai menjawab…"]
+# ── thinking indicator natural (fitur 41, revisi) ────────────────
+# Bukan template kaku: frasa di-generate LLM sesuai mode (santai/formal),
+# di-cache 6 jam per chat. Fallback bank frasa kalau LLM gagal.
+_BANK = {
+    "santai": [
+        "sebentar, gue cek dulu ya…",
+        "hmm, gue pikirin dulu…",
+        "oke, lagi gue rangkum…",
+        "sabar dikit, gue proses…",
+        "bentar ya, gue cari…",
+    ],
+    "formal": [
+        "Mohon tunggu, saya periksa terlebih dahulu…",
+        "Sebentar, saya pertimbangkan dulu…",
+        "Baik, saya susun jawabannya…",
+        "Mohon bersabar, sedang saya proses…",
+        "Saya cek dahulu informasinya…",
+    ],
+}
+_THINK_CACHE_TTL = 6 * 3600
 
+
+def _bank_steps(conv: str) -> list:
+    import random
+    key = "formal" if conv == "formal" else "santai"
+    pool = _BANK[key][:]
+    random.shuffle(pool)
+    return pool
+
+
+async def _gen_steps(llm, conv: str) -> list:
+    """Minta LLM 3 frasa singkat penanda proses, sesuai mode percakapan."""
+    try:
+        gaya = ("SANTUn/gaul, pakai 'gue/lo', santai akrab"
+                if conv != "formal" else
+                "FORMAL/sopan, pakai 'saya/Anda'")
+        out = await llm.chat([
+            {"role": "system", "content":
+                f"Buat 3 frasa SINGKAT (maks 6 kata) penanda bahwa AI sedang "
+                f"memproses jawaban, dengan gaya {gaya}. Frasa harus variatif, "
+                f"natural seperti manusia yang sedang berpikir/mencari, bukan "
+                f"kata teknis. Emoji maksimal 1 di akhir. Balas persis 3 baris, "
+                f"tanpa nomor, tanpa penjelasan tambahan."},
+            {"role": "user", "content": "buat sekarang"}])
+        lines = [x.strip(" -•*") for x in (out or "").splitlines()
+                 if x.strip()]
+        lines = [x for x in lines if 2 < len(x) < 60][:3]
+        return lines if len(lines) == 3 else []
+    except Exception as e:
+        log.debug(f"think gen err: {e}")
+        return []
+
+
+async def _get_steps(llm, chat_id: int, conv: str) -> list:
+    """Cache per (chat, gaya); kalau kosong → bank + spawn generate background."""
+    key = f"thinkfrasa:{chat_id}:{conv}"
+    try:
+        raw = await db.get(key)
+        if raw:
+            import json as _j
+            arr = _j.loads(raw)
+            if arr and isinstance(arr, list) and len(arr) >= 2:
+                return arr
+            # cache kedaluwarsa → generate ulang di background
+    except Exception:
+        pass
+    steps = _bank_steps(conv)
+
+    async def _bg():
+        got = await _gen_steps(llm, conv)
+        if got:
+            try:
+                import json as _j
+                await db.set(key, _j.dumps(got))
+            except Exception:
+                pass
+    try:
+        asyncio.ensure_future(_bg())
+    except Exception:
+        pass
+    return steps
+
+
+class Thinker:
     def __init__(self):
         self.task = None
 
-    async def start(self, client, chat_id: int, smart: bool):
+    async def start(self, client, chat_id: int, smart: bool,
+                    conv: str = "santai", llm=None):
         if not smart:
             return None
-        m = await client.send_message(chat_id, self.STEPS[0])
-        self.task = asyncio.create_task(self._cycle(client, m))
+        steps = await _get_steps(llm, chat_id, conv) if llm else _bank_steps(conv)
+        m = await client.send_message(chat_id, steps[0])
+        self.task = asyncio.create_task(self._cycle(client, m, steps))
         return m
 
-    async def _cycle(self, client, m):
+    async def _cycle(self, client, m, steps):
         i = 0
         try:
             while True:
                 await asyncio.sleep(3.5)
-                i = min(i + 1, len(self.STEPS) - 1)
+                i = min(i + 1, len(steps) - 1)
                 try:
-                    await m.edit_text(self.STEPS[i])
+                    await m.edit_text(steps[i])
                 except Exception:
                     pass
         except asyncio.CancelledError:

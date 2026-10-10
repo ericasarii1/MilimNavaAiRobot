@@ -536,7 +536,8 @@ async def handle_message(client, message: Message):
     # thinking indicator (mode smart saja — fitur 41)
     thinker = Thinker()
     think_msg = await thinker.start(client, chat_id,
-                                    smart=(st["chatbot"] == "smart"))
+                                    smart=(st["chatbot"] == "smart"),
+                                    conv=st["conv"], llm=llm)
 
     try:
         ai_respond._needs_clarify = needs_clarify

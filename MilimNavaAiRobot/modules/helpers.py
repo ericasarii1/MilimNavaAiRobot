@@ -154,8 +154,16 @@ async def _gen_steps(llm, conv: str) -> list:
         return []
 
 
+_THINK_MEM = {}          # {(chat_id, conv): (ts, [frasa])}
+
+
 async def _get_steps(llm, chat_id: int, conv: str) -> list:
-    """Cache per (chat, gaya); kalau kosong → bank + spawn generate background."""
+    """Frasa penanda proses — SELALU di-generate AI sesuai mode percakapan.
+    Cache 6 jam per (chat, mode); bank frasa hanya dipakai kalau AI gagal."""
+    mk = (chat_id, conv)
+    hit = _THINK_MEM.get(mk)
+    if hit and time.time() - hit[0] < _THINK_CACHE_TTL:
+        return hit[1]
     key = f"thinkfrasa:{chat_id}:{conv}"
     try:
         raw = await db.get(key)
@@ -163,25 +171,27 @@ async def _get_steps(llm, chat_id: int, conv: str) -> list:
             import json as _j
             arr = _j.loads(raw)
             if arr and isinstance(arr, list) and len(arr) >= 2:
+                _THINK_MEM[mk] = (time.time(), arr)
                 return arr
-            # cache kedaluwarsa → generate ulang di background
     except Exception:
         pass
-    steps = _bank_steps(conv)
-
-    async def _bg():
-        got = await _gen_steps(llm, conv)
+    # belum ada → MINTA ke AI sekarang (bukan template)
+    if llm is not None:
+        try:
+            got = await asyncio.wait_for(_gen_steps(llm, conv), timeout=15)
+        except Exception as e:
+            log.debug(f"think gen timeout/err: {e}")
+            got = []
         if got:
+            _THINK_MEM[mk] = (time.time(), got)
             try:
                 import json as _j
                 await db.set(key, _j.dumps(got))
             except Exception:
                 pass
-    try:
-        asyncio.ensure_future(_bg())
-    except Exception:
-        pass
-    return steps
+            return got
+    # AI gagal → bank (jaring pengaman terakhir)
+    return _bank_steps(conv)
 
 
 class Thinker:

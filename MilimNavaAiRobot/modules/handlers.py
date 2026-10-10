@@ -4,6 +4,7 @@
 # ══════════════════════════════════════════════════════════════════
 
 import re
+import random
 import time
 import asyncio
 import logging
@@ -419,6 +420,33 @@ async def handle_commands(client, message: Message):
 # ══════════════════════════════════════════════════════════════════
 
 @app.on_message(filters.group | filters.private, group=2)
+async def _error_reply(message, conv: str):
+    """Pesan error: di-generate LLM sesuai mode (anti-template), fallback bank."""
+    formal = conv == "formal"
+    gaya = ("santai/gaul pakai gue/lo, singkat" if not formal
+            else "formal/sopan pakai saya/Anda, singkat")
+    try:
+        out = await llm.chat([
+            {"role": "system", "content":
+                f"Kamu bot Telegram. Layanan AI-mu sedang gagal merespons "
+                f"(gangguan sesaat). Buat SATU kalimat pendek (maks 15 kata) "
+                f"yg minta user coba lagi sebentar lagi. Gaya: {gaya}. Maks 1 "
+                f"emoji. HANYA kalimatnya."},
+            {"role": "user", "content": "buat sekarang"}])
+        out = (out or "").strip().strip('"')
+        if 4 < len(out) < 150:
+            await message.reply_text(out, quote=True)
+            return
+    except Exception as e:
+        log.debug(f"err text gen err: {e}")
+    bank = (["Sebentar ya, sistem lagi agak gangguan. Coba lagi deh bentar lagi.",
+             "Waduh, otak gue lagi tersendat. Coba ulang dalam semenit ya."]
+            if not formal else
+            ["Mohon maaf, layanan sedang mengalami gangguan. Silakan coba lagi nanti.",
+             "Terjadi kesalahan teknis sesaat. Mohon ulangi beberapa saat lagi."])
+    await message.reply_text(random.choice(bank), quote=True)
+
+
 async def handle_message(client, message: Message):
     if message.id in _handled:
         return
@@ -586,9 +614,19 @@ async def handle_message(client, message: Message):
 
     try:
         ai_respond._needs_clarify = needs_clarify
-        answer = await ai_respond(client, message, merged,
-                                  media_b64=media["b64"],
-                                  media_desc=media["desc"])
+        answer = None
+        for _attempt in range(3):
+            try:
+                answer = await ai_respond(client, message, merged,
+                                          media_b64=media["b64"],
+                                          media_desc=media["desc"])
+                break
+            except Exception as _e:
+                log.debug(f"ai attempt {_attempt+1} gagal: {_e}")
+                if _attempt < 2:
+                    await asyncio.sleep(1.5 * (_attempt + 1))
+        if answer is None:
+            raise LLMError("semua percobaan gagal")
         # fact-verify (deep brain 3): klaim faktual dicek ke web
         try:
             answer = await DB2.verify_facts(llm, merged, answer)
@@ -613,12 +651,12 @@ async def handle_message(client, message: Message):
             except Exception as e:
                 log.debug(f"reason fmt err: {e}")
     except LLMError:
-        await message.reply_text(P.error_text(st["conv"]), quote=True)
+        await _error_reply(message, st["conv"])
         await thinker.stop(client, think_msg)
         return
     except Exception as e:
         log.error(f"ai_respond err: {e}\n{traceback.format_exc()}")
-        await message.reply_text(P.error_text(st["conv"]), quote=True)
+        await _error_reply(message, st["conv"])
         await thinker.stop(client, think_msg)
         return
     finally:

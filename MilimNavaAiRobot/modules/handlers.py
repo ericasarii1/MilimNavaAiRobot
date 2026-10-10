@@ -419,7 +419,6 @@ async def handle_commands(client, message: Message):
 # MAIN MESSAGE HANDLER (fitur 5, 6, 7, 8, 18, 21, 31, 38-41)
 # ══════════════════════════════════════════════════════════════════
 
-@app.on_message(filters.group | filters.private, group=2)
 async def _error_reply(message, conv: str):
     """Pesan error: di-generate LLM sesuai mode (anti-template), fallback bank."""
     formal = conv == "formal"
@@ -447,6 +446,7 @@ async def _error_reply(message, conv: str):
     await message.reply_text(random.choice(bank), quote=True)
 
 
+@app.on_message(filters.group | filters.private, group=2)
 async def handle_message(client, message: Message):
     if message.id in _handled:
         return

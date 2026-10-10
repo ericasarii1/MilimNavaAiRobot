@@ -296,8 +296,7 @@ async def ai_respond(client, message: Message, user_text: str,
     # reasoning 2-pass (mikir dulu ala model reasoning) — untuk pertanyaan
     # yang butuh logika tapi tidak butuh tool eksternal
     use_reason = (not use_agent and bool(user_text)
-                  and st.get("chatbot") != "off"
-                  and RS.worth_reasoning(user_text))
+                  and st.get("chatbot") != "off")
     if use_reason:
         try:
             answer, _reasoning = await RS.think(llm, user_text, system, msgs)
@@ -608,13 +607,6 @@ async def handle_message(client, message: Message):
             log.debug(f"normalize err: {e}")
         # tampilkan reasoning sbg blok collapsible (ala model reasoning)
         _rp = getattr(ai_respond, "_reasoning", None)
-        if _rp:
-            # buang kalau isinya cuma duplikat/memparafrase jawaban
-            try:
-                if RS.reasoning_duplicates_answer(_rp, answer):
-                    _rp = None
-            except Exception as e:
-                log.debug(f"reason dup err: {e}")
         if _rp:
             try:
                 answer = RS.format_answer(answer, _rp)

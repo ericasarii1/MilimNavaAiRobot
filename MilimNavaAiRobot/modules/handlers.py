@@ -290,6 +290,7 @@ async def ai_respond(client, message: Message, user_text: str,
 
     # agentic loop: AI pilih tool sendiri (search/hitung/baca) utk
     # pertanyaan yang butuh eksplorasi; sisanya jawaban langsung
+    _reasoning_pending = None
     use_agent = bool(user_text) and len(user_text) > 25 and \
         st.get("chatbot") != "off" and not media_b64
     # reasoning 2-pass (mikir dulu ala model reasoning) — untuk pertanyaan
@@ -299,10 +300,12 @@ async def ai_respond(client, message: Message, user_text: str,
                   and st.get("chatbot") != "off")
     if use_reason:
         try:
-            answer = await RS.think(llm, user_text, system, msgs)
+            answer, _reasoning = await RS.think(llm, user_text, system, msgs)
         except Exception as e:
             log.debug(f"reasoning err: {e}")
-            answer = None
+            answer, _reasoning = None, None
+        if answer and _reasoning:
+            _reasoning_pending = _reasoning
         if not answer:
             answer = await llm.chat(msgs, image_b64=media_b64)
     elif use_agent:
@@ -603,6 +606,12 @@ async def handle_message(client, message: Message):
                 answer, formal=(st["conv"] == "formal"))
         except Exception as e:
             log.debug(f"normalize err: {e}")
+        # tampilkan reasoning sbg blok collapsible (ala model reasoning)
+        if _reasoning_pending:
+            try:
+                answer = RS.format_answer(answer, _reasoning_pending)
+            except Exception as e:
+                log.debug(f"reason fmt err: {e}")
     except LLMError:
         await message.reply_text(P.error_text(st["conv"]), quote=True)
         await thinker.stop(client, think_msg)
@@ -662,7 +671,8 @@ async def handle_message(client, message: Message):
                               formal=(st["conv"] == "formal"),
                               quote=True)
         else:
-            await message.reply_text(answer, quote=True)
+            _pm = enums.ParseMode.HTML if "<blockquote" in answer else None
+            await message.reply_text(answer, quote=True, parse_mode=_pm)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

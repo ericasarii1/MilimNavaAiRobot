@@ -57,18 +57,41 @@ def final_instruction(reasoning: str) -> str:
         "Boleh singkat, yang penting benar.")
 
 
-async def think(llm, user_text: str, system: str, msgs: list) -> str | None:
-    """Jalankan 2-pass reasoning. Return jawaban final, atau None jika gagal
-    (caller jatuh ke jalur jawab biasa)."""
+async def think(llm, user_text: str, system: str, msgs: list):
+    """Jalankan 2-pass reasoning. Return (jawaban_final, reasoning) atau
+    (None, None) jika gagal (caller jatuh ke jalur jawab biasa)."""
     try:
         r_msgs = list(msgs) + [
             {"role": "user", "content": user_text + "\n\n" + REASONING_INSTRUCTION}]
         reasoning = await llm.chat(r_msgs)
         if not reasoning or len(reasoning) < 60:
-            return None
+            return None, None
         f_msgs = list(msgs) + [
             {"role": "user", "content": user_text + final_instruction(reasoning)}]
-        return await llm.chat(f_msgs)
+        answer = await llm.chat(f_msgs)
+        if not answer:
+            return None, None
+        return answer, reasoning
     except Exception as e:
         log.debug(f"reasoning err: {e}")
-        return None
+        return None, None
+
+
+MAX_REASON_SHOW = 1500
+
+
+def format_answer(answer: str, reasoning: str) -> str:
+    """Jawaban + blok 💭 Reasoning (blockquote expandable — bisa dibuka/
+    ditutup di Telegram, persis tampilan reasoning model modern)."""
+    if not reasoning:
+        return answer
+    r = reasoning.strip()
+    if len(r) > MAX_REASON_SHOW:
+        r = r[:MAX_REASON_SHOW] + " …"
+    r = r.replace("```", "")
+    # escape HTML di KEDUA bagian agar parse_mode=HTML aman
+    import html as _html
+    r = _html.escape(r)
+    answer = _html.escape(answer)
+    return (f"💭 <b>Reasoning:</b>\n"
+            f"<blockquote expandable>{r}</blockquote>\n\n{answer}")

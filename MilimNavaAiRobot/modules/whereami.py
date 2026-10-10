@@ -29,12 +29,18 @@ STALE = 60 * 60 * 24 * 3    # 3 hari = dianggap tidak aktif lagi
 
 ASK_GROUP_RE = re.compile(
     r"\b(lagi (?:di )?grup mana|grup mana aja|grup apa aja|ada di grup|"
-    r"dimana aja lo|di mana aja lo|grup yang lo|grup yang kamu|"
-    r"ikut grup|anggota grup mana)\b", re.IGNORECASE)
+    r"dimana aja lo|di mana aja lo|grup yang lo|grup yang kamu|ikut grup|"
+    r"anggota grup mana|ngobrol di grup|obrolan di grup|grup yang (?:kamu|lo|"
+    r"anda)\s*(?:ikut|masuk|aktif|ikutin|ikuti)|daftar grup|list grup|"
+    r"masuk grup mana|aktif di grup|di grup (?:apa|mana)|gruppenya|"
+    r"ikut(?:in)? grup apa)\b", re.IGNORECASE)
 ASK_DM_RE = re.compile(
     r"\b(lagi (?:chat|ngobrol) sama siapa|siapa yang (?:chat|ngobrol|dm)|"
-    r"ada siapa di dm|siapa aja yang (?:chat|dm)|dm siapa aja|"
-    r"private chat sama siapa|pc sama siapa)\b", re.IGNORECASE)
+    r"ada siapa di dm|siapa aja yang (?:chat|dm|pc|private)|dm siapa aja|"
+    r"private chat sama siapa|pc sama siapa|chat(?:an)? sama siapa|"
+    r"sama siapa aja|pm(?:-an)? sama siapa|personal(?:-an)? sama siapa|"
+    r"yang ngobrol (?:sama|bareng) (?:lo|kamu)\s*(?:di)?\s*(?:pc|dm|private)?)\b",
+    re.IGNORECASE)
 
 
 async def _get(key, default):
@@ -107,13 +113,18 @@ def _active(ts: int) -> str:
 async def maybe_inject(chat_id, is_private: bool, user_text: str) -> str:
     """Inject daftar grup/DM kalau user nanyain."""
     t = user_text or ""
-    if ASK_GROUP_RE.search(t) and not is_private or \
-       (ASK_GROUP_RE.search(t) and is_private):
+    # pertanyaan grup harus mengandung kata tanya (mana/apa/aja/berapa)
+    _grp_q = bool(ASK_GROUP_RE.search(t)) and bool(
+        re.search(r"\b(mana|apa|aja|berapa|list|daftar)\b", t, re.I))
+    if _grp_q:
         groups = await _get(GKEY, {})
         if not groups:
             return ("\n\nINFO LOKASI: user menanyakan grup mana saja "
-                    "yang kamu ikuti. Data belum tersedia — jawab jujur "
-                    "kalau daftarnya belum kecatat.")
+                    "yang kamu ikuti. Kamu PUNYA kemampuan mencatat grup "
+                    "tempat kamu aktif — datanya sedang kosong/baru "
+                    "dimulai. JANGAN mengaku tidak punya daftar. Jawab "
+                    "jujur bahwa catatan baru saja dinyalakan & grup yang "
+                    "kamu masuki mulai sekarang akan tercatat.")
         lines = []
         for cid, g in sorted(groups.items(), key=lambda kv: -kv[1].get("last", 0))[:15]:
             n_users = len(g.get("users", {}))

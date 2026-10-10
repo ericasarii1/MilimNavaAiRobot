@@ -16,7 +16,8 @@ from pyrogram.errors import FloodWait
 from MilimNavaAiRobot import C, app, db, llm, memory, state, NAMES_RE, CMD_RE
 from MilimNavaAiRobot.modules import prompts as P
 from MilimNavaAiRobot.modules.ai import LLMError
-from MilimNavaAiRobot.modules.helpers import (should_respond, now_str,
+from MilimNavaAiRobot.modules.helpers import (normalize_output,
+                                              should_respond, now_str,
                                               humanize_delta, AntiSpam,
                                               Batcher, Thinker, TypingLoop, strip_meta_prefix)
 from MilimNavaAiRobot.modules.media import read_media
@@ -554,6 +555,12 @@ async def handle_message(client, message: Message):
             await DB2.mark_conversation(chat_id, user_id)
         except Exception as e:
             log.debug(f"mark conv err: {e}")
+        # hygiene ejaan: tampal typo nama & singkatan kasar (jaga gaya)
+        try:
+            answer = normalize_output(
+                answer, formal=(st["conv"] == "formal"))
+        except Exception as e:
+            log.debug(f"normalize err: {e}")
     except LLMError:
         await message.reply_text(P.error_text(st["conv"]), quote=True)
         await thinker.stop(client, think_msg)

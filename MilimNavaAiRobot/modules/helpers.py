@@ -317,3 +317,61 @@ def strip_meta_prefix(text: str) -> str:
                  "", out, flags=re.IGNORECASE)
     out = re.sub(r"[ \t]{2,}", " ", out)
     return out.strip() if not text.endswith("\n") else out
+
+# ── normalize output: perbaiki typo nama & kata Indonesia umum ──────
+# Hanya menambal kesalahan PASTI (bukan gaya santai). Case-preserving.
+def _fix_fullname(m):
+    src = m.group(0)
+    if src.isupper():
+        return "MILIM NAVA"
+    return "Milim Nava"
+
+
+_TYPO_FIX = [
+    # nama lengkap: case kanonik, dihitung khusus
+    (re.compile(r"\bMilim\s+[Nn]ava\b|\bMILIM\s+NAVA\b|\bMilim\s+Mava\b", re.I), _fix_fullname),
+    (re.compile(r"\bMilin\b", re.I), "Milim"),
+    (re.compile(r"\bMlim\b", re.I), "Milim"),
+    (re.compile(r"\bMilm\b", re.I), "Milim"),
+    (re.compile(r"\bwargi\b", re.I), "warga"),
+    (re.compile(r"\bwarga\s+negara\b", re.I), "warga negara"),
+]
+# kata umum yang jelas typo — HANYA di mode formal (santai boleh "gk" dll? tidak: tetap rapi)
+_TYPO_COMMON = [
+    (re.compile(r"\byng\b", re.I), "yang"),
+    (re.compile(r"\bdgn\b", re.I), "dengan"),
+    (re.compile(r"\bdr\b", re.I), "dari"),
+    (re.compile(r"\bkrn\b", re.I), "karena"),
+    (re.compile(r"\btsb\b", re.I), "tersebut"),
+    (re.compile(r"\bsbg\b", re.I), "sebagai"),
+    (re.compile(r"\btdk\b", re.I), "tidak"),
+    (re.compile(r"\bdpt\b", re.I), "dapat"),
+    (re.compile(r"\bsdh\b", re.I), "sudah"),
+    (re.compile(r"\bblm\b", re.I), "belum"),
+    (re.compile(r"\bjgn\b", re.I), "jangan"),
+    (re.compile(r"\bjd\b", re.I), "jadi"),
+]
+
+
+def _preserve_case(match, repl):
+    if callable(repl):
+        return repl(match)
+    src = match.group(0)
+    if src.isupper():
+        return repl.upper()
+    if src[:1].isupper():
+        return repl.capitalize()
+    return repl
+
+
+def normalize_output(text: str, formal: bool = False) -> str:
+    """Tampal typo nama & singkatan kasar. Gaya santai user tidak dirusak."""
+    if not text:
+        return text
+    out = text
+    for rx, rep in _TYPO_FIX:
+        out = rx.sub(lambda m, r=rep: _preserve_case(m, r), out)
+    if formal:
+        for rx, rep in _TYPO_COMMON:
+            out = rx.sub(lambda m, r=rep: _preserve_case(m, r), out)
+    return out

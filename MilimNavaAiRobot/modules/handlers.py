@@ -671,7 +671,8 @@ async def handle_message(client, message: Message):
                               formal=(st["conv"] == "formal"),
                               quote=True)
         else:
-            await message.reply_text(answer, quote=True)
+            _pm = enums.ParseMode.MARKDOWN if "```" in answer else None
+            await message.reply_text(answer, quote=True, parse_mode=_pm)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)

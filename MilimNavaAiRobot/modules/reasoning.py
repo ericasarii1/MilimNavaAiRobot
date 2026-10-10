@@ -133,6 +133,11 @@ def clean_reasoning(r: str) -> str:
     return _META_LINE.sub("", r).strip(" \n\t-*_")
 
 
+def _strip_nonascii(r: str) -> str:
+    """Buang semua karakter non-ASCII (emoji, unicode box, dsb) — teks polos."""
+    return "".join(ch for ch in r if 32 <= ord(ch) < 127 or ch in "\n\r\t")
+
+
 def format_answer(answer: str, reasoning: str) -> str:
     """Jawaban + blok 💭 Reasoning (markdown, quote >). Tanpa HTML."""
     if not reasoning:
@@ -141,5 +146,6 @@ def format_answer(answer: str, reasoning: str) -> str:
     if not r:
         return answer
     r = r.replace("```", "")
-    # reasoning = teks biasa (tanpa blok kode, tanpa emoji), isi berbahasa Inggris
-    return f"Reasoning:\n{r}\n\n{answer}"
+    # TEKS INGGRIS POLOS di dalam blok kode (tombol Salin Kode), tanpa emoji/unicode
+    r = _strip_nonascii(r)
+    return f"Reasoning:\n```\n{r}\n```\n\n{answer}"

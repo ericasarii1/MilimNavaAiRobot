@@ -609,6 +609,13 @@ async def handle_message(client, message: Message):
         # tampilkan reasoning sbg blok collapsible (ala model reasoning)
         _rp = getattr(ai_respond, "_reasoning", None)
         if _rp:
+            # buang kalau isinya cuma duplikat/memparafrase jawaban
+            try:
+                if RS.reasoning_duplicates_answer(_rp, answer):
+                    _rp = None
+            except Exception as e:
+                log.debug(f"reason dup err: {e}")
+        if _rp:
             try:
                 answer = RS.format_answer(answer, _rp)
             except Exception as e:

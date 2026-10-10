@@ -56,12 +56,16 @@ def needs_reasoning(text: str) -> bool:
 
 REASONING_INSTRUCTION = (
     "SEKARANG PIKIRKAN SEBENTAR sebelum menjawab. Tulis alur pikirmu "
-    "SINGKAT (paling banyak 3-4 baris pendek), pakai bahasa yang sama "
-    "dengan obrolan (santai tetap santai). Fokus HANYA pada isi jawaban. "
-    "ATURAN KERAS: jangan pakai judul/heading (jangan tulis 'SCRATCHPAD', "
-    "'Fakta:', 'Hipotesis:', 'Analisis:'), jangan pakai bullet bernomor, "
-    "jangan mengomentari perilaku/kebiasaan user, jangan menyebut fitur, "
-    "tombol, atau aplikasi. Cukup inti pikiran yang mengarah ke jawaban.")
+    "SINGKAT (2-3 baris), fokus ke CARA MENJAWAB: apa inti pertanyaannya, "
+    "sudut pandang apa yang dipakai, apa yang perlu dihindari. "
+    "ATURAN KERAS: JANGAN menulis isi jawaban, JANGAN membuat daftar/"
+    "rekomendasi/contoh yang akan jadi isi jawaban, JANGAN mengulang atau "
+    "memparafrase pesan user, JANGAN pakai judul/heading, JANGAN "
+    "mengomentari perilaku user. Contoh bentuk yang benar: 'pertanyaannya "
+    "soal rekomendasi, gue harus hindari judul yang udah disebut, kasih 4-5 "
+    "judul beda genre'. Contoh yang SALAH: 'wkwk spam lagi, oke ini "
+    "tambahannya: 1. JJK S3...'. Kalau pertanyaannya gampang dan gak butuh "
+    "pikir panjang, tulis satu kalimat pendek saja.")
 
 
 def final_instruction(reasoning: str) -> str:
@@ -96,6 +100,23 @@ async def think(llm, user_text: str, system: str, msgs: list):
     except Exception as e:
         log.debug(f"reasoning err: {e}")
         return None, None
+
+
+def reasoning_duplicates_answer(reasoning: str, answer: str) -> bool:
+    """True kalau scratchpad isinya cuma duplikat/parafrase jawaban —
+    tampilkan berarti dobel, lebih baik disembunyikan."""
+    def _words(t: str) -> set:
+        return {w for w in re.findall(r"[a-z0-9]{4,}", (t or "").lower())
+                if w not in {"yang", "dengan", "untuk", "adalah", "tapi",
+                             "juga", "sudah", "gak", "nggak", "banget",
+                             "kayak", "gitu", "aja", "bisa", "harus", "saya",
+                             "gue", "lo", "wkwk", "wkwkwk", "makes", "this"}}
+    ra, aa = _words(reasoning), _words(answer)
+    if not ra or not aa:
+        return False
+    inter = len(ra & aa) / max(1, len(ra | aa))
+    contained = sum(1 for w in ra if w in aa) / max(1, len(ra))
+    return inter >= 0.35 or contained >= 0.7
 
 
 MAX_REASON_SHOW = 480

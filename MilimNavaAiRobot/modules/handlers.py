@@ -672,14 +672,18 @@ async def handle_message(client, message: Message):
                               quote=True)
         else:
             _pm = enums.ParseMode.MARKDOWN if "```" in answer or answer.startswith("💭 **") else None
-            # jaga biar muat 1 pesan (Telegram 4096): pangkas rapi di batas kalimat
-            if len(answer) > 3950:
-                answer = answer[:3950].rsplit(".", 1)[0].rsplit("\n", 1)[0] + "…"
-                log.debug(f"answer trimmed: {len(answer)}")
             await message.reply_text(answer, quote=True, parse_mode=_pm)
     except FloodWait as e:
         await asyncio.sleep(e.value)
         await message.reply_text(answer)
+    except Exception as e:
+        # kebanyakan: pesan >4096 (MESSAGE_TOO_LONG) → pangkas rapi, tetap 1 pesan
+        log.debug(f"reply long err: {e}")
+        try:
+            _cut = answer[:3950].rsplit(".", 1)[0].rsplit("\n", 1)[0] + "…"
+            await message.reply_text(_cut, quote=True)
+        except Exception as e2:
+            log.error(f"reply err: {e2}")
     except Exception as e:
         log.error(f"reply err: {e}")
 

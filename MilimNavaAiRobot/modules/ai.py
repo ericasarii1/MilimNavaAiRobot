@@ -190,7 +190,7 @@ class LLM:
                 ]
             msgs.append({"role": "user" if m["role"] == "user" else "assistant",
                          "content": content})
-        payload = {"model": p.model, "max_tokens": 1200, "messages": msgs,
+        payload = {"model": p.model, "max_tokens": 3000, "messages": msgs,
                    "system": sys_txt}
         async with self.session.post(
             p.base_url,

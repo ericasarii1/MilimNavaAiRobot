@@ -143,14 +143,5 @@ def format_answer(answer: str, reasoning: str) -> str:
     r = r.replace("```", "")
     # blok kode dgn tombol "Salin Kode" ala Telegram
     q = f"```\n{r}\n```"
-    head = f"💭 **Reasoning:**\n{q}\n\n"
-    # reasoning TANPA batas (ala model reasoning asli). Kalau total melebihi
-    # 4096 Telegram: jawaban utuh dipertahankan, REASONING yang dipangkas di ekor.
-    room = 3950 - len(answer) - 20
-    if room < len(q):
-        if room > 100:
-            q = q[:room].rsplit(" ", 1)[0] + " …\n```"
-        else:
-            q = "…\n```"  # jawaban super panjang, reasoning tinggal tanda
-    head = f"💭 **Reasoning:**\n{q}\n\n"
-    return head + answer
+    # jawaban & reasoning dua-duanya tanpa batas (ala model reasoning asli)
+    return f"💭 **Reasoning:**\n{q}\n\n{answer}"

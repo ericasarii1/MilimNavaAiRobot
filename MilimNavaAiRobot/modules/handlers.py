@@ -51,6 +51,7 @@ from MilimNavaAiRobot.modules import nuance as NC
 from MilimNavaAiRobot.modules import debate as DB3
 from MilimNavaAiRobot.modules import vocab as VC
 from MilimNavaAiRobot.modules import thread as TD
+from MilimNavaAiRobot.modules import whereami as WA
 from MilimNavaAiRobot.modules import deep_brain as DB2
 from MilimNavaAiRobot.modules import media_transcript as MT2
 
@@ -174,6 +175,13 @@ async def ai_respond(client, message: Message, user_text: str,
                 await RC.remember_from(chat.id, user.id, user_text or "")
             except Exception as e:
                 log.debug(f"recall err: {e}")
+            try:
+                wa_ctx = await WA.maybe_inject(chat.id, chat.type == enums.ChatType.PRIVATE,
+                                               user_text or "")
+                if wa_ctx:
+                    system += wa_ctx
+            except Exception as e:
+                log.debug(f"whereami err: {e}")
             try:
                 ts_ctx = TS.maybe_inject(user_text or "")
                 if ts_ctx:
@@ -648,9 +656,19 @@ async def handle_message(client, message: Message):
     entry = text or (media["desc"][:400] if media["desc"] else "") or "(media)"
     if is_private:
         await memory.add(chat_id, user_id, "user", entry)
+        try:
+            await WA.touch_dm(user_id, user.first_name, entry[:80])
+        except Exception as e:
+            log.debug(f"wa dm err: {e}")
     else:
         await memory.add_group(chat_id, user.first_name, "user", entry)
         await memory.add(chat_id, user_id, "user", entry)
+        # whereami: catat grup tempat milim aktif
+        try:
+            await WA.touch_group(chat_id, chat.title or "Grup",
+                                 user.first_name)
+        except Exception as e:
+            log.debug(f"wa group err: {e}")
         # cross-chat (aman): catat grup ini di daftar grup milik user
         try:
             raw = await db.get(f"user_groups:{user_id}")

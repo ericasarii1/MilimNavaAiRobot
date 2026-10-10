@@ -8,7 +8,7 @@ import asyncio
 import logging
 
 from pyrogram import enums
-from MilimNavaAiRobot import C, NAMES_RE, db, llm
+from MilimNavaAiRobot import C, NAMES_RE, NAMES_MATCH_RE, db, llm
 
 log = logging.getLogger("milim.util")
 
@@ -234,7 +234,7 @@ def should_respond(st: dict, text: str, user_id: int) -> tuple:
     if not st["speaking"]:
         return False, "diam"
 
-    named = bool(NAMES_RE.search(text or ""))
+    named = bool(NAMES_MATCH_RE.search(text or ""))
     if st["chatbot"] == "on":
         return True, "on"
     if st["chatbot"] == "off":

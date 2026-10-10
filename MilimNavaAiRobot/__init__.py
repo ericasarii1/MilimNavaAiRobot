@@ -147,7 +147,51 @@ class Config:
 
 import re as _re
 
+import difflib as _difflib
+
+_NAME_WORDS = ("milim", "nava", "lim", "lilim", "limlim", "mili")
+
+# kata umum yang MIRIP nama tapi bukan panggilan → jangan pernah dianggap
+_NOT_NAME = {
+    "like", "likes", "link", "links", "klik", "kliklah", "lilin", "lima",
+    "limit", "kilat", "lil", "lila", "lip", "lap", "lon", "limun", "limus",
+    "naval", "nav", "lime", "lump", "lamp", "lain", "laen", "klim", "limau",
+    "mil", "mile", "miles", "mill", "nail", "naskah", "nilai", "nyawa",
+}
+
+
+def _fuzzy_name_hit(text: str) -> bool:
+    """Kenali nama bot walau ada typo (lik~lim, milim~milm, nawaa~nava)."""
+    if not text:
+        return False
+    for w in _re.findall(r"[a-z]+", text.lower()):
+        if w in _NAME_WORDS:
+            return True
+        if w in _NOT_NAME or len(w) < 3:
+            continue
+        # typo: kemiripan cukup & beda tak lebih dari 2 huruf dari nama terdekat
+        for n in _NAME_WORDS:
+            r = _difflib.SequenceMatcher(None, w, n).ratio()
+            if r >= 0.66 and abs(len(w) - len(n)) <= 1:
+                return True
+    return False
+
+
 NAMES_RE = _re.compile(r"\b(milim\s*nava|milim|limlim|lilim|lim|nava|mili)\b", _re.IGNORECASE)
+
+
+class _FuzzyRe:
+    """Drop-in untuk regex yang dipakai should_respond: search() fuzzy."""
+    def search(self, text):
+        if not text:
+            return None
+        if NAMES_RE.search(text):
+            return True
+        return _fuzzy_name_hit(text) or None
+
+
+NAMES_MATCH_RE = _FuzzyRe()
+
 CMD_RE = _re.compile(r"^\s*(milim\s*nava|milim|limlim|lilim|lim|nava|mili)\s+(.+)$",
                      _re.IGNORECASE | _re.DOTALL)
 

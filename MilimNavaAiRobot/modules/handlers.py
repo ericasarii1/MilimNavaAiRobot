@@ -538,9 +538,13 @@ async def handle_commands(client, message: Message):
 
     raw = (message.text or message.caption or "").strip()
     m = CMD_RE.match(raw)
-    if not m:
+    if m:
+        cmd = m.group(2).strip().lower()
+    elif message.chat.type == enums.ChatType.PRIVATE:
+        # di DM nama boleh dicetus: "clear database" langsung diterima
+        cmd = raw.lower()
+    else:
         return
-    cmd = m.group(2).strip().lower()
     chat_id = message.chat.id
     st = await state.get(chat_id)
 

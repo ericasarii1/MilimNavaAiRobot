@@ -296,7 +296,6 @@ async def ai_respond(client, message: Message, user_text: str,
     # reasoning 2-pass (mikir dulu ala model reasoning) — untuk pertanyaan
     # yang butuh logika tapi tidak butuh tool eksternal
     use_reason = (not use_agent and bool(user_text)
-                  and RS.needs_reasoning(user_text)
                   and st.get("chatbot") != "off")
     if use_reason:
         try:

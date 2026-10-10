@@ -143,8 +143,8 @@ def format_answer(answer: str, reasoning: str) -> str:
     if len(r) > MAX_REASON_SHOW:
         r = r[:MAX_REASON_SHOW].rsplit(" ", 1)[0] + " …"
     r = r.replace("```", "")
-    # markdown quote: tiap baris diawali '>'
-    q = "\n".join("> " + ln for ln in r.splitlines() or [r])
+    # blok kode dgn tombol "Salin Kode" ala Telegram
+    q = f"```\n{r}\n```"
     head = f"💭 **Reasoning:**\n{q}\n\n"
     # jaga total tetap muat 1 pesan Telegram (4096)
     budget = 3950 - len(head)

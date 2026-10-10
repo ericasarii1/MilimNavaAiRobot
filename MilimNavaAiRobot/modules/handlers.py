@@ -671,7 +671,7 @@ async def handle_message(client, message: Message):
                               formal=(st["conv"] == "formal"),
                               quote=True)
         else:
-            _pm = enums.ParseMode.MARKDOWN if "\n> " in answer or answer.startswith("💭 **") else None
+            _pm = enums.ParseMode.MARKDOWN if "```" in answer or answer.startswith("💭 **") else None
             # jaga biar muat 1 pesan (Telegram 4096): pangkas rapi di batas kalimat
             if len(answer) > 3950:
                 answer = answer[:3950].rsplit(".", 1)[0].rsplit("\n", 1)[0] + "…"

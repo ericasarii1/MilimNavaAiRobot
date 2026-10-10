@@ -55,17 +55,17 @@ def needs_reasoning(text: str) -> bool:
 
 
 REASONING_INSTRUCTION = (
-    "SEKARANG PIKIRKAN SEBENTAR sebelum menjawab. Tulis alur pikirmu "
-    "SINGKAT (2-3 baris), fokus ke CARA MENJAWAB: apa inti pertanyaannya, "
-    "sudut pandang apa yang dipakai, apa yang perlu dihindari. "
-    "ATURAN KERAS: JANGAN menulis isi jawaban, JANGAN membuat daftar/"
-    "rekomendasi/contoh yang akan jadi isi jawaban, JANGAN mengulang atau "
-    "memparafrase pesan user, JANGAN pakai judul/heading, JANGAN "
-    "mengomentari perilaku user. Contoh bentuk yang benar: 'pertanyaannya "
-    "soal rekomendasi, gue harus hindari judul yang udah disebut, kasih 4-5 "
-    "judul beda genre'. Contoh yang SALAH: 'wkwk spam lagi, oke ini "
-    "tambahannya: 1. JJK S3...'. Kalau pertanyaannya gampang dan gak butuh "
-    "pikir panjang, tulis satu kalimat pendek saja.")
+    "THINK FIRST before answering. Write your thought process in ENGLISH, "
+    "plain text only (NO emoji, NO markdown, NO bullet lists, NO headings, "
+    "NO code blocks). Keep it SHORT (2-4 sentences), focused on HOW to "
+    "answer: what the user is really asking, what angle to take, what to "
+    "avoid. HARD RULES: do NOT write the actual answer, do NOT draft lists/"
+    "recommendations that belong in the answer, do NOT comment on the "
+    "user's behavior, do NOT mention limits or batches. Example GOOD: "
+    "'User wants a long list; previous answer covered A and B, so list "
+    "the rest in one go, no batching.' Example BAD: 'wkwk spam lagi, oke "
+    "ini tambahannya: 1. JJK S3...'. If the question is trivial, one short "
+    "sentence is enough.")
 
 
 def final_instruction(reasoning: str) -> str:
@@ -141,7 +141,5 @@ def format_answer(answer: str, reasoning: str) -> str:
     if not r:
         return answer
     r = r.replace("```", "")
-    # blok kode dgn tombol "Salin Kode" ala Telegram
-    q = f"```\n{r}\n```"
-    # header bold ala model reasoning
-    return f"**💭 Reasoning:**\n{q}\n\n{answer}"
+    # reasoning = teks biasa (tanpa blok kode, tanpa emoji), isi berbahasa Inggris
+    return f"Reasoning:\n{r}\n\n{answer}"

@@ -97,6 +97,13 @@ async def ai_respond(client, message: Message, user_text: str,
               "- Riwayat chat di context diberi tanda seperti (pesan dari X, 5 menit lalu) — itu HANYA metadata utkmu, JANGAN PERNAH menyalin/mengulang format itu di jawaban.\n"
               "- Jawaban langsung isi saja, tanpa prefiks nama/waktu/penanda apa pun.")
 
+    # human rules (fitur kemampuan manusiawi) — disuntik dari handle_message
+    ai_respond._last_system = system
+    _hr = getattr(ai_respond, "_human_rules", None)
+    if _hr:
+        system += _hr
+        ai_respond._human_rules = None
+
     # persona tambahan (dari owner)
     system += PR.persona_prompt(await PR.get_persona())
 
@@ -669,7 +676,7 @@ async def handle_message(client, message: Message):
     # sticker reply: catat stiker yang terlihat; kadang bales pakai stiker
     if message.sticker and message.sticker.file_id:
         try:
-            SR.remember(chat_id, message.sticker.file_id)
+            SR.remember(chat.id, message.sticker.file_id)
         except Exception:
             pass
 
@@ -812,7 +819,7 @@ async def handle_message(client, message: Message):
             _hlen = 0
         if HT.is_ambiguous(text or "", _reply_ctx, _hlen):
             needs_clarify = True
-        system += HT.build_human_rules(_reply_ctx, _hlen)
+        ai_respond._human_rules = HT.build_human_rules(_reply_ctx, _hlen)
     except Exception as e:
         log.debug(f"human rules err: {e}")
 
@@ -930,8 +937,8 @@ async def handle_message(client, message: Message):
     try:
         if SE.is_repetitive(chat_id, answer):
             retry = await llm.chat([
-                {"role": "system", "content": system},
-                {"role": "user", "content": final_text or "(media)"},
+                {"role": "system", "content": getattr(ai_respond, "_last_system", "")},
+                {"role": "user", "content": merged or "(media)"},
                 {"role": "assistant", "content": answer},
                 {"role": "user", "content":
                     "Jawabanmu di atas terlalu mirip dengan jawabanmu "

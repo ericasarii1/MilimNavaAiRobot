@@ -643,6 +643,21 @@ async def _error_reply(message, conv: str):
 async def handle_message(client, message: Message):
     if message.id in _handled:
         return
+    # POLA KODE LAMA: command dicek DI DALAM handler utama (bukan handler
+    # terpisah) supaya pasti kebaca di DM & grup apa pun filternya.
+    try:
+        _raw = (message.text or "").strip()
+        if _raw:
+            _low = _raw.lower()
+            _m = CMD_RE.match(_raw) or (
+                _is_dm(message.chat) and _DM_CMD_RE.match(_raw))
+            if _m:
+                log.info(f"[cmd-inmain] raw={_raw[:60]!r}")
+                await handle_commands(client, message)
+                if message.id in _handled:
+                    return
+    except Exception as _e:
+        log.error(f"[cmd-inmain] err: {_e}")
     if not message.from_user or message.from_user.is_bot:
         return
     # voice/audio: diproses modules/voice.py (group=0) — lewati di sini

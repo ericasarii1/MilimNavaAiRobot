@@ -36,11 +36,11 @@ ASK_GROUP_RE = re.compile(
     r"ikut(?:in)? grup apa)\b", re.IGNORECASE)
 ASK_DM_RE = re.compile(
     r"\b(lagi (?:chat|ngobrol) sama siapa|siapa yang (?:chat|ngobrol|dm)|"
-    r"ada siapa di dm|siapa aja yang (?:chat|dm|pc|private)|dm siapa aja|"
-    r"private chat sama siapa|pc sama siapa|chat(?:an)? sama siapa|"
+    r"ada siapa di dm|siapa aja yang (?:chat|dm|pc|private|ngobrol|aktif)|"
+    r"dm siapa aja|private chat sama siapa|pc sama siapa|chat(?:an)? sama siapa|"
     r"sama siapa aja|pm(?:-an)? sama siapa|personal(?:-an)? sama siapa|"
-    r"yang ngobrol (?:sama|bareng) (?:lo|kamu)\s*(?:di)?\s*(?:pc|dm|private)?)\b",
-    re.IGNORECASE)
+    r"ngobrol (?:sama|bareng) (?:lo|kamu)|aktif ngobrol sama (?:lo|kamu)|"
+    r"yang (?:chat|ngobrol|dm) (?:sama|bareng) (?:lo|kamu))\b", re.IGNORECASE)
 
 
 async def _get(key, default):

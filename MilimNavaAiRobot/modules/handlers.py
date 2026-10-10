@@ -143,62 +143,63 @@ async def ai_respond(client, message: Message, user_text: str,
         # anime/manga lookup: data AniList utk topik anime (kemampuan)
         try:
             anime_ctx = await AN.maybe_inject(user_text or "")
-            # kemampuan baru: kode/error, matematika/unit, waktu relatif
-            try:
-                _rep_txt = (message.reply_to_message.text or
-                            message.reply_to_message.caption or ""
-                            ) if message.reply_to_message else ""
-            except Exception:
-                _rep_txt = ""
-            try:
-                cx_ctx = CX.maybe_inject(user_text or "", _rep_txt)
-                if cx_ctx:
-                    system += cx_ctx
-                    # run python kalau diminta
-                    _code = CX.extract_code(_rep_txt or user_text or "")
-                    if CX.wants_run(user_text or "", _code):
-                        _res = await CX.run_python(_code)
-                        system += (f"\n\nHASIL EKSEKUSI KODE (nyata):\n"
-                                   f"```\n{_res}\n```")
-            except Exception as e:
-                log.debug(f"codex err: {e}")
-            try:
-                mm_ctx = MM.maybe_inject(user_text or "")
-                if mm_ctx:
-                    system += mm_ctx
-            except Exception as e:
-                log.debug(f"mathmind err: {e}")
-            try:
-                rc_ctx = await RC.maybe_inject(chat.id, user.id, user_text or "")
-                if rc_ctx:
-                    system += rc_ctx
-                await RC.remember_from(chat.id, user.id, user_text or "")
-            except Exception as e:
-                log.debug(f"recall err: {e}")
-            try:
-                wa_ctx = await WA.maybe_inject(chat.id, chat.type == enums.ChatType.PRIVATE,
-                                               user_text or "")
-                if wa_ctx:
-                    system += wa_ctx
-            except Exception as e:
-                log.debug(f"whereami err: {e}")
-            try:
-                ts_ctx = TS.maybe_inject(user_text or "")
-                if ts_ctx:
-                    system += ts_ctx
-                if TS.is_reminder_intent(user_text or ""):
-                    _dt = TS.parse_relative(user_text or "")
-                    if _dt:
-                        system += (f"\n\nINTENT REMINDER: user minta "
-                                   f"diingatkan. Target waktu absolut: "
-                                   f"{_dt[0].strftime('%Y-%m-%d %H:%M')}. "
-                                   f"Konfirmasi waktu itu di jawabanmu.")
-            except Exception as e:
-                log.debug(f"timesense err: {e}")
             if anime_ctx:
                 system += anime_ctx
         except Exception as e:
             log.debug(f"anime err: {e}")
+
+        # kemampuan baru: kode/error, matematika/unit, waktu relatif
+        try:
+            _rep_txt = (message.reply_to_message.text or
+                        message.reply_to_message.caption or ""
+                        ) if message.reply_to_message else ""
+        except Exception:
+            _rep_txt = ""
+        try:
+            cx_ctx = CX.maybe_inject(user_text or "", _rep_txt)
+            if cx_ctx:
+                system += cx_ctx
+                # run python kalau diminta
+                _code = CX.extract_code(_rep_txt or user_text or "")
+                if CX.wants_run(user_text or "", _code):
+                    _res = await CX.run_python(_code)
+                    system += (f"\n\nHASIL EKSEKUSI KODE (nyata):\n"
+                               f"```\n{_res}\n```")
+        except Exception as e:
+            log.debug(f"codex err: {e}")
+        try:
+            mm_ctx = MM.maybe_inject(user_text or "")
+            if mm_ctx:
+                system += mm_ctx
+        except Exception as e:
+            log.debug(f"mathmind err: {e}")
+        try:
+            rc_ctx = await RC.maybe_inject(chat.id, user.id, user_text or "")
+            if rc_ctx:
+                system += rc_ctx
+            await RC.remember_from(chat.id, user.id, user_text or "")
+        except Exception as e:
+            log.debug(f"recall err: {e}")
+        try:
+            wa_ctx = await WA.maybe_inject(chat.id, chat.type == enums.ChatType.PRIVATE,
+                                           user_text or "")
+            if wa_ctx:
+                system += wa_ctx
+        except Exception as e:
+            log.debug(f"whereami err: {e}")
+        try:
+            ts_ctx = TS.maybe_inject(user_text or "")
+            if ts_ctx:
+                system += ts_ctx
+            if TS.is_reminder_intent(user_text or ""):
+                _dt = TS.parse_relative(user_text or "")
+                if _dt:
+                    system += (f"\n\nINTENT REMINDER: user minta "
+                               f"diingatkan. Target waktu absolut: "
+                               f"{_dt[0].strftime('%Y-%m-%d %H:%M')}. "
+                               f"Konfirmasi waktu itu di jawabanmu.")
+        except Exception as e:
+            log.debug(f"timesense err: {e}")
 
         # brainbox: zona waktu/konversi satuan/analisis kode (kemampuan)
         try:

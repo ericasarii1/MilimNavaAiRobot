@@ -303,9 +303,11 @@ async def ai_respond(client, message: Message, user_text: str,
     # tampilan blok apa pun, seperti perilaku original awal
     ai_respond._reasoning = None
     _pre_answer = None
-    if bool(user_text) and st.get("chatbot") != "off":
+    if (bool(user_text) or media_desc) and st.get("chatbot") != "off":
+        _rt = user_text or (f"(user mengirim media: {media_desc[:200]})"
+                            if media_desc else "(media)")
         try:
-            _pre_answer, _reasoning = await RS.think(llm, user_text, system, msgs)
+            _pre_answer, _reasoning = await RS.think(llm, _rt, system, msgs)
             ai_respond._reasoning = _reasoning
         except Exception as e:
             log.debug(f"reasoning err: {e}")

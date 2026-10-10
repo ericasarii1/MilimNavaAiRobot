@@ -165,6 +165,26 @@ class Database:
         return out
 
     async def clear_all(self):
-        for prefix in ["sess:", "hist:", "state:", "media:", "grp:", "stats:"]:
-            for k in await self.keys(prefix):
-                await self.delete(k)
+        """Hapus SEMUA data (global), apa pun prefix-nya — semua backend."""
+        async with self.lock:
+            # mongo: kosongkan seluruh collection kv
+            if self.mongo is not None:
+                try:
+                    self.mongo.kv.delete_many({})
+                except Exception:
+                    pass
+            # redis: hapus semua key milim
+            if self.redis is not None:
+                try:
+                    async for k in self.redis.scan_iter("*"):
+                        await self.redis.delete(k)
+                except Exception:
+                    pass
+            # postgres: kosongkan tabel kv
+            if self.pg is not None:
+                try:
+                    self.pg.cursor().execute("DELETE FROM milim_kv")
+                except Exception:
+                    pass
+            # memori in-memory
+            self._mem.clear()
